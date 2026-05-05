@@ -1,0 +1,15 @@
+# Changelog
+
+All notable changes to Heimdall are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Initial Flutter desktop scaffold for macOS and Windows.
+- Credentials form (base URL, email, API token) backed by `flutter_secure_storage`.
+- Filter list management — add, edit, delete; filter ID or raw JQL.
+- Ticket list view: per-filter sections with key, summary, and status chip.
+- Click-through to the default browser via `url_launcher`.
+- Manual refresh and pull-to-refresh.
+- Empty states for missing credentials and empty filter list.
