@@ -20,7 +20,7 @@ Writes beyond status transitions — comments, summary edits, field edits, assig
 
 ## Install (macOS)
 
-Grab `heimdall.zip` from the [latest release](https://github.com/LarryHsiao/Heimdall/releases/latest) and unzip with Finder.
+Grab `heimdall.dmg` from the [latest release](https://github.com/LarryHsiao/Heimdall/releases/latest), open it, and drag `heimdall.app` into `Applications`. (A `heimdall.zip` is published alongside if you'd rather skip the disk image — unzip with Finder and move the app yourself.)
 
 On first launch, macOS Gatekeeper may pause to verify the build. Heimdall is signed with Developer ID and notarized by Apple, but the very first open after download requires either an online verification or a one-time bypass. Two ways past it:
 
@@ -28,10 +28,10 @@ On first launch, macOS Gatekeeper may pause to verify the build. Heimdall is sig
 - **Or, in Terminal**, drop the quarantine attribute:
 
   ```bash
-  xattr -dr com.apple.quarantine ~/Downloads/heimdall.app
+  xattr -dr com.apple.quarantine /Applications/heimdall.app
   ```
 
-If you see *"could not be verified"* or *"is damaged"*, the first cause is usually no network — Gatekeeper checks Apple's notary service the first time. Reconnect and retry. If the staple still fails, the zip may have been extracted by a tool that dropped the ticket; re-download and unzip with Finder.
+If you see *"could not be verified"* or *"is damaged"*, the first cause is usually no network — Gatekeeper checks Apple's notary service the first time. Reconnect and retry. If the staple still fails, the archive may have been extracted by a tool that dropped the ticket; re-download with Finder.
 
 ## Setup
 
