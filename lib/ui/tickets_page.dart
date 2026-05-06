@@ -6,6 +6,7 @@ import '../data/jira.dart';
 import '../data/jira_credentials.dart';
 import '../data/jira_filter.dart';
 import '../data/jira_ticket.dart';
+import '../data/jira_transition.dart';
 import '../data/preferences.dart';
 import '../data/vault.dart';
 import '../data/view_settings.dart';
@@ -28,23 +29,42 @@ class _TicketsPageState extends State<TicketsPage> {
 
   ViewSettings _settings = const ViewSettings();
   String? _assigneeFilter;
-  late Future<_PageState> _state;
+  _PageState? _data;
+  bool _loading = true;
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
-    _state = _bootstrap();
+    _bootstrap();
   }
 
-  Future<_PageState> _bootstrap() async {
+  Future<void> _bootstrap() async {
     _settings = await _preferences.read();
-    return _load();
+    await _doLoad();
   }
 
-  void _refresh() {
+  Future<void> _refresh() async => _doLoad();
+
+  Future<void> _doLoad() async {
     setState(() {
-      _state = _load();
+      _loading = true;
+      _loadError = null;
     });
+    try {
+      final data = await _load();
+      if (!mounted) return;
+      setState(() {
+        _data = data;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = '$e';
+      });
+    }
   }
 
   Future<_PageState> _load() async {
@@ -58,6 +78,40 @@ class _TicketsPageState extends State<TicketsPage> {
       sections.add(await _section(filter, credentials));
     }
     return _PageState(credentials: credentials, sections: sections);
+  }
+
+  void _patchTicketStatus(
+    String key,
+    String newStatus,
+    String newStatusCategory,
+  ) {
+    final data = _data;
+    if (data == null) return;
+    final sections = data.sections.map((s) {
+      final tickets = s.tickets.map((t) {
+        if (t.key != key) return t;
+        return JiraTicket(
+          key: t.key,
+          summary: t.summary,
+          statusName: newStatus.isEmpty ? t.statusName : newStatus,
+          statusCategory:
+              newStatusCategory.isEmpty ? t.statusCategory : newStatusCategory,
+          issueType: t.issueType,
+          priority: t.priority,
+          assignee: t.assignee,
+          parentKey: t.parentKey,
+          parentSummary: t.parentSummary,
+        );
+      }).toList();
+      return FilterSection(
+        filter: s.filter,
+        tickets: tickets,
+        error: s.error,
+      );
+    }).toList();
+    setState(() {
+      _data = _PageState(credentials: data.credentials, sections: sections);
+    });
   }
 
   Future<FilterSection> _section(
@@ -106,6 +160,19 @@ class _TicketsPageState extends State<TicketsPage> {
     final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
     final uri = Uri.parse('$base/browse/${ticket.key}');
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<List<JiraTransition>> _loadTransitions(JiraTicket ticket) async {
+    final cred = await _vault.read();
+    if (cred == null) return const [];
+    return _jira.transitions(ticket, cred);
+  }
+
+  Future<void> _applyTransition(JiraTicket ticket, JiraTransition tr) async {
+    final cred = await _vault.read();
+    if (cred == null) return;
+    await _jira.transition(ticket, tr.id, cred);
+    _patchTicketStatus(ticket.key, tr.toStatus, tr.toStatusCategory);
   }
 
   void _toggleMode() {
@@ -161,21 +228,18 @@ class _TicketsPageState extends State<TicketsPage> {
           ),
         ],
       ),
-      body: FutureBuilder<_PageState>(
-        future: _state,
-        builder: (_, snapshot) => _bodyOf(snapshot),
-      ),
+      body: _bodyOf(),
     );
   }
 
-  Widget _bodyOf(AsyncSnapshot<_PageState> snapshot) {
-    if (snapshot.connectionState != ConnectionState.done) {
+  Widget _bodyOf() {
+    if (_loading && _data == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (snapshot.hasError) {
-      return Center(child: Text('Error: ${snapshot.error}'));
+    if (_loadError != null && _data == null) {
+      return Center(child: Text('Error: $_loadError'));
     }
-    final data = snapshot.data;
+    final data = _data;
     if (data == null) {
       return const SizedBox.shrink();
     }
@@ -234,6 +298,8 @@ class _TicketsPageState extends State<TicketsPage> {
                         onColumnWidthChange: _onColumnWidthChange,
                         onTicketTap: (t) =>
                             _openTicket(data.credentials!, t),
+                        onLoadTransitions: _loadTransitions,
+                        onApplyTransition: _applyTransition,
                       ),
                     ),
                   )
@@ -278,7 +344,7 @@ class _TicketsPageState extends State<TicketsPage> {
 
   Widget _quickFilters(_AssigneeOptions options) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(24, 0, 16, 0),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -381,6 +447,8 @@ class _SectionView extends StatefulWidget {
   final void Function(SortColumn column, bool ascending) onSort;
   final void Function(SortColumn column, double width) onColumnWidthChange;
   final ValueChanged<JiraTicket> onTicketTap;
+  final Future<List<JiraTransition>> Function(JiraTicket) onLoadTransitions;
+  final Future<void> Function(JiraTicket, JiraTransition) onApplyTransition;
 
   const _SectionView({
     required this.section,
@@ -388,6 +456,8 @@ class _SectionView extends StatefulWidget {
     required this.onSort,
     required this.onColumnWidthChange,
     required this.onTicketTap,
+    required this.onLoadTransitions,
+    required this.onApplyTransition,
   });
 
   @override
@@ -682,12 +752,20 @@ class _SectionViewState extends State<_SectionView> {
         _bodyCell(t, _summaryCell(t, row.parentCaption, theme)),
         _bodyCell(t, _priorityCell(t)),
         _bodyCell(t, Text(t.assignee.isEmpty ? '—' : t.assignee)),
-        _bodyCell(t, Text(t.statusName, overflow: TextOverflow.ellipsis)),
+        _bodyCell(
+          t,
+          Text(t.statusName, overflow: TextOverflow.ellipsis),
+          onTapWithContext: (ctx) => _onStatusTap(ctx, t),
+        ),
       ],
     );
   }
 
-  Widget _bodyCell(JiraTicket t, Widget child) {
+  Widget _bodyCell(
+    JiraTicket t,
+    Widget child, {
+    void Function(BuildContext)? onTapWithContext,
+  }) {
     return TableCell(
       verticalAlignment: TableCellVerticalAlignment.middle,
       child: MouseRegion(
@@ -696,15 +774,67 @@ class _SectionViewState extends State<_SectionView> {
         onExit: (_) => setState(() {
           if (_hoveredKey == t.key) _hoveredKey = null;
         }),
-        child: GestureDetector(
-          onTap: () => widget.onTicketTap(t),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: child,
+        child: Builder(
+          builder: (cellCtx) => GestureDetector(
+            onTap: () => onTapWithContext != null
+                ? onTapWithContext(cellCtx)
+                : widget.onTicketTap(t),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: child,
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _onStatusTap(BuildContext context, JiraTicket t) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final overlay =
+        Navigator.of(context).overlay?.context.findRenderObject() as RenderBox?;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || overlay == null) return;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        box.localToGlobal(Offset.zero, ancestor: overlay),
+        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+    List<JiraTransition> transitions;
+    try {
+      transitions = await widget.onLoadTransitions(t);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Load failed: $e')));
+      return;
+    }
+    if (!context.mounted) return;
+    if (transitions.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No transitions available.')),
+      );
+      return;
+    }
+    final selectedId = await showMenu<String>(
+      context: context,
+      position: position,
+      items: transitions
+          .map((tr) => PopupMenuItem<String>(
+                value: tr.id,
+                child: Text(tr.name),
+              ))
+          .toList(),
+    );
+    if (selectedId == null) return;
+    final selected = transitions.firstWhere((tr) => tr.id == selectedId);
+    try {
+      await widget.onApplyTransition(t, selected);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Transition failed: $e')),
+      );
+    }
   }
 
   Widget _typeCell(_Row row) {

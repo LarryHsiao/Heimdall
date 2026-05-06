@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Unblurred source screenshots (only the redacted screenshot.png is checked in)
+/docs/screenshots/raw.png

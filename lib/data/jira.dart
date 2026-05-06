@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'jira_credentials.dart';
 import 'jira_filter.dart';
 import 'jira_ticket.dart';
+import 'jira_transition.dart';
 
 class Jira {
   final Dio _dio;
@@ -65,6 +66,51 @@ class Jira {
       assignee: (assignee['displayName'] as String?) ?? '',
       parentKey: (parent['key'] as String?) ?? '',
       parentSummary: (parentFields['summary'] as String?) ?? '',
+    );
+  }
+
+  Future<List<JiraTransition>> transitions(
+    JiraTicket ticket,
+    JiraCredentials credentials,
+  ) async {
+    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
+    final response = await _dio.get<Map<String, dynamic>>(
+      '$base/rest/api/3/issue/${ticket.key}/transitions',
+      options: Options(headers: {'Authorization': 'Basic $auth'}),
+    );
+    final list = (response.data?['transitions'] as List?) ?? const [];
+    return list.map(_transitionOf).toList();
+  }
+
+  JiraTransition _transitionOf(dynamic raw) {
+    final to = (raw['to'] as Map<String, dynamic>?) ?? const {};
+    final cat = (to['statusCategory'] as Map<String, dynamic>?) ?? const {};
+    return JiraTransition(
+      id: (raw['id'] as String?) ?? '',
+      name: (raw['name'] as String?) ?? '',
+      toStatus: (to['name'] as String?) ?? '',
+      toStatusCategory: (cat['name'] as String?) ?? '',
+    );
+  }
+
+  Future<void> transition(
+    JiraTicket ticket,
+    String transitionId,
+    JiraCredentials credentials,
+  ) async {
+    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
+    await _dio.post<dynamic>(
+      '$base/rest/api/3/issue/${ticket.key}/transitions',
+      data: {
+        'transition': {'id': transitionId},
+      },
+      options: Options(headers: {'Authorization': 'Basic $auth'}),
     );
   }
 }
