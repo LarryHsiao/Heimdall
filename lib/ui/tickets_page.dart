@@ -226,11 +226,13 @@ class _Row {
   final JiraTicket ticket;
   final bool indented;
   final bool parentCaption;
+  final bool parentInList;
 
   const _Row({
     required this.ticket,
     required this.indented,
     required this.parentCaption,
+    required this.parentInList,
   });
 }
 
@@ -260,7 +262,7 @@ class _Empty extends StatelessWidget {
   }
 }
 
-class _SectionView extends StatelessWidget {
+class _SectionView extends StatefulWidget {
   final FilterSection section;
   final ViewSettings settings;
   final void Function(SortColumn column, bool ascending) onSort;
@@ -272,6 +274,16 @@ class _SectionView extends StatelessWidget {
     required this.onSort,
     required this.onTicketTap,
   });
+
+  @override
+  State<_SectionView> createState() => _SectionViewState();
+}
+
+class _SectionViewState extends State<_SectionView> {
+  String? _hoveredKey;
+
+  FilterSection get section => widget.section;
+  ViewSettings get settings => widget.settings;
 
   @override
   Widget build(BuildContext context) {
@@ -312,8 +324,7 @@ class _SectionView extends StatelessWidget {
       ];
     }
     return [
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+      Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: _table(context),
       ),
@@ -321,58 +332,69 @@ class _SectionView extends StatelessWidget {
   }
 
   Widget _table(BuildContext context) {
+    final theme = Theme.of(context);
     final rows = _arrange(section.tickets);
-    return DataTable(
-      showCheckboxColumn: false,
-      sortColumnIndex: _indexOf(settings.column),
-      sortAscending: settings.ascending,
-      columnSpacing: 24,
-      dataRowMinHeight: 36,
-      dataRowMaxHeight: 64,
-      headingRowHeight: 40,
-      columns: _columns(),
-      rows: rows.map((r) => _dataRow(r, context)).toList(),
+    return Table(
+      columnWidths: const {
+        0: IntrinsicColumnWidth(),
+        1: IntrinsicColumnWidth(),
+        2: FlexColumnWidth(),
+        3: IntrinsicColumnWidth(),
+        4: IntrinsicColumnWidth(),
+        5: IntrinsicColumnWidth(),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      border: TableBorder(
+        horizontalInside: BorderSide(width: 0.5, color: theme.dividerColor),
+      ),
+      children: [
+        _headerRow(theme),
+        ...rows.map((r) => _bodyRow(r, theme)),
+      ],
     );
   }
 
-  List<DataColumn> _columns() {
-    return [
-      _col('Type', SortColumn.type),
-      _col('Key', SortColumn.key),
-      _col('Summary', SortColumn.summary),
-      _col('Pri', SortColumn.priority),
-      _col('Assignee', SortColumn.assignee),
-      _col('Status', SortColumn.status),
-    ];
-  }
-
-  DataColumn _col(String label, SortColumn column) {
-    return DataColumn(
-      label: Text(label),
-      onSort: (_, asc) => onSort(column, asc),
+  TableRow _headerRow(ThemeData theme) {
+    return TableRow(
+      decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest),
+      children: [
+        _headerCell('Type', SortColumn.type),
+        _headerCell('Key', SortColumn.key),
+        _headerCell('Summary', SortColumn.summary),
+        _headerCell('Pri', SortColumn.priority),
+        _headerCell('Assignee', SortColumn.assignee),
+        _headerCell('Status', SortColumn.status),
+      ],
     );
   }
 
-  int? _indexOf(SortColumn column) {
-    switch (column) {
-      case SortColumn.none:
-        return null;
-      case SortColumn.type:
-        return 0;
-      case SortColumn.key:
-        return 1;
-      case SortColumn.summary:
-        return 2;
-      case SortColumn.priority:
-        return 3;
-      case SortColumn.assignee:
-        return 4;
-      case SortColumn.status:
-        return 5;
-    }
+  Widget _headerCell(String label, SortColumn column) {
+    final active = settings.column == column;
+    return InkWell(
+      onTap: () =>
+          widget.onSort(column, active ? !settings.ascending : true),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(width: 4),
+            Opacity(
+              opacity: active ? 1 : 0,
+              child: Icon(
+                settings.ascending ? Icons.arrow_upward : Icons.arrow_downward,
+                size: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   List<_Row> _arrange(List<JiraTicket> tickets) {
+    final keys = tickets.map((t) => t.key).toSet();
     if (settings.mode == ViewMode.flat) {
       return _sorted(tickets)
           .map(
@@ -380,15 +402,15 @@ class _SectionView extends StatelessWidget {
               ticket: t,
               indented: false,
               parentCaption: t.parentKey.isNotEmpty,
+              parentInList: keys.contains(t.parentKey),
             ),
           )
           .toList();
     }
-    return _grouped(tickets);
+    return _grouped(tickets, keys);
   }
 
-  List<_Row> _grouped(List<JiraTicket> tickets) {
-    final keys = tickets.map((t) => t.key).toSet();
+  List<_Row> _grouped(List<JiraTicket> tickets, Set<String> keys) {
     final tops = <JiraTicket>[];
     final children = <String, List<JiraTicket>>{};
     for (final t in tickets) {
@@ -401,9 +423,19 @@ class _SectionView extends StatelessWidget {
     final rows = <_Row>[];
     for (final t in _sorted(tops)) {
       final orphan = t.parentKey.isNotEmpty;
-      rows.add(_Row(ticket: t, indented: orphan, parentCaption: orphan));
+      rows.add(_Row(
+        ticket: t,
+        indented: false,
+        parentCaption: orphan,
+        parentInList: false,
+      ));
       for (final c in _sorted(children[t.key] ?? const <JiraTicket>[])) {
-        rows.add(_Row(ticket: c, indented: true, parentCaption: false));
+        rows.add(_Row(
+          ticket: c,
+          indented: true,
+          parentCaption: false,
+          parentInList: true,
+        ));
       }
     }
     return rows;
@@ -485,43 +517,84 @@ class _SectionView extends StatelessWidget {
 
   String _emptyLast(String s) => s.isEmpty ? '\u{FFFF}' : s.toLowerCase();
 
-  DataRow _dataRow(_Row row, BuildContext context) {
+  TableRow _bodyRow(_Row row, ThemeData theme) {
     final t = row.ticket;
-    return DataRow(
-      onSelectChanged: (_) => onTicketTap(t),
-      cells: [
-        DataCell(_typeCell(t, row.indented)),
-        DataCell(Text(t.key)),
-        DataCell(_summaryCell(t, row.parentCaption, context)),
-        DataCell(Text(t.priority.isEmpty ? '—' : t.priority)),
-        DataCell(Text(t.assignee.isEmpty ? '—' : t.assignee)),
-        DataCell(Chip(label: Text(t.statusName))),
+    final hovered = _hoveredKey == t.key;
+    return TableRow(
+      decoration: BoxDecoration(
+        color: hovered ? theme.colorScheme.surfaceContainerHigh : null,
+      ),
+      children: [
+        _bodyCell(t, _typeCell(row)),
+        _bodyCell(t, Text(t.key)),
+        _bodyCell(t, _summaryCell(t, row.parentCaption, theme)),
+        _bodyCell(t, Text(t.priority.isEmpty ? '—' : t.priority)),
+        _bodyCell(t, Text(t.assignee.isEmpty ? '—' : t.assignee)),
+        _bodyCell(t, Chip(label: Text(t.statusName))),
       ],
     );
   }
 
-  Widget _typeCell(JiraTicket t, bool indented) {
-    return Padding(
-      padding: EdgeInsets.only(left: indented ? 24 : 0),
-      child: Tooltip(
-        message: t.issueType,
-        child: Icon(_iconOf(t.issueType), size: 18),
+  Widget _bodyCell(JiraTicket t, Widget child) {
+    return TableCell(
+      verticalAlignment: TableCellVerticalAlignment.middle,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hoveredKey = t.key),
+        onExit: (_) => setState(() {
+          if (_hoveredKey == t.key) _hoveredKey = null;
+        }),
+        child: GestureDetector(
+          onTap: () => widget.onTicketTap(t),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: child,
+          ),
+        ),
       ),
     );
   }
 
-  Widget _summaryCell(JiraTicket t, bool showCaption, BuildContext context) {
-    if (!showCaption) return Text(t.summary);
-    final caption = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.outline,
-        );
+  Widget _typeCell(_Row row) {
+    final t = row.ticket;
+    final orphanSub = _isSubtask(t.issueType) && !row.parentInList;
+    final icon = orphanSub ? Icons.check_box_outlined : _iconOf(t.issueType);
+    return Padding(
+      padding: EdgeInsets.only(left: row.indented ? 24 : 0),
+      child: Tooltip(
+        message: t.issueType,
+        child: Icon(icon, size: 18),
+      ),
+    );
+  }
+
+  bool _isSubtask(String type) {
+    final t = type.toLowerCase();
+    return t == 'sub-task' || t == 'subtask';
+  }
+
+  Widget _summaryCell(JiraTicket t, bool showCaption, ThemeData theme) {
+    final summary = Text(
+      t.summary,
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+    );
+    if (!showCaption) return summary;
+    final caption = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.outline,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(t.summary),
-        Text('↳ ${t.parentKey} · ${t.parentSummary}', style: caption),
+        summary,
+        Text(
+          '↳ ${t.parentKey} · ${t.parentSummary}',
+          style: caption,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ],
     );
   }
