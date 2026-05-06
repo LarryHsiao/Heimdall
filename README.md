@@ -18,6 +18,21 @@ Writes beyond status transitions — comments, summary edits, field edits, assig
 - An Atlassian account with an [API token](https://id.atlassian.com/manage-profile/security/api-tokens)
 - Targets: macOS and Windows desktop
 
+## Install (macOS)
+
+Grab `heimdall.zip` from the [latest release](https://github.com/LarryHsiao/Heimdall/releases/latest) and unzip with Finder.
+
+On first launch, macOS Gatekeeper may pause to verify the build. Heimdall is signed with Developer ID and notarized by Apple, but the very first open after download requires either an online verification or a one-time bypass. Two ways past it:
+
+- **Right-click the app → Open**, then *Open* in the dialog. Subsequent launches don't ask.
+- **Or, in Terminal**, drop the quarantine attribute:
+
+  ```bash
+  xattr -dr com.apple.quarantine ~/Downloads/heimdall.app
+  ```
+
+If you see *"could not be verified"* or *"is damaged"*, the first cause is usually no network — Gatekeeper checks Apple's notary service the first time. Reconnect and retry. If the staple still fails, the zip may have been extracted by a tool that dropped the ticket; re-download and unzip with Finder.
+
 ## Setup
 
 ```bash
