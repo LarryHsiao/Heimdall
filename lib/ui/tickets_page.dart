@@ -27,6 +27,7 @@ class _TicketsPageState extends State<TicketsPage> {
   final Jira _jira = Jira();
 
   ViewSettings _settings = const ViewSettings();
+  String? _assigneeFilter;
   late Future<_PageState> _state;
 
   @override
@@ -192,25 +193,38 @@ class _TicketsPageState extends State<TicketsPage> {
         onAction: _addFilter,
       );
     }
-    final keyId = data.sections.map((s) => s.filter.id).join(',');
+    final options = _assigneesOf(data.sections);
+    if (!_isFilterValid(options)) {
+      _assigneeFilter = null;
+    }
+    final filtered = _filterSections(data.sections, _assigneeFilter);
+    final keyId = filtered.map((s) => s.filter.id).join(',');
     return DefaultTabController(
       key: ValueKey(keyId),
-      length: data.sections.length,
+      length: filtered.length,
       child: Column(
         children: [
           Material(
             color: Theme.of(context).colorScheme.surface,
-            child: TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: data.sections
-                  .map((s) => Tab(text: s.filter.name))
-                  .toList(),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TabBar(
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    tabs: filtered
+                        .map((s) => Tab(text: s.filter.name))
+                        .toList(),
+                  ),
+                ),
+                if (options.named.isNotEmpty || options.hasUnassigned)
+                  _quickFilters(options),
+              ],
             ),
           ),
           Expanded(
             child: TabBarView(
-              children: data.sections
+              children: filtered
                   .map(
                     (s) => SingleChildScrollView(
                       child: _SectionView(
@@ -230,6 +244,76 @@ class _TicketsPageState extends State<TicketsPage> {
       ),
     );
   }
+
+  _AssigneeOptions _assigneesOf(List<FilterSection> sections) {
+    final all = sections.expand((s) => s.tickets).map((t) => t.assignee);
+    final hasUnassigned = all.any((a) => a.isEmpty);
+    final named = all.where((a) => a.isNotEmpty).toSet().toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return _AssigneeOptions(named: named, hasUnassigned: hasUnassigned);
+  }
+
+  bool _isFilterValid(_AssigneeOptions options) {
+    if (_assigneeFilter == null) return true;
+    if (_assigneeFilter == '') return options.hasUnassigned;
+    return options.named.contains(_assigneeFilter);
+  }
+
+  List<FilterSection> _filterSections(
+    List<FilterSection> sections,
+    String? assignee,
+  ) {
+    if (assignee == null) return sections;
+    return sections
+        .map(
+          (s) => FilterSection(
+            filter: s.filter,
+            tickets:
+                s.tickets.where((t) => t.assignee == assignee).toList(),
+            error: s.error,
+          ),
+        )
+        .toList();
+  }
+
+  Widget _quickFilters(_AssigneeOptions options) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.person_outline, size: 18),
+          const SizedBox(width: 8),
+          DropdownButton<String?>(
+            value: _assigneeFilter,
+            hint: const Text('All assignees'),
+            underline: const SizedBox.shrink(),
+            items: [
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('All assignees'),
+              ),
+              if (options.hasUnassigned)
+                const DropdownMenuItem<String?>(
+                  value: '',
+                  child: Text('(Unassigned)'),
+                ),
+              for (final a in options.named)
+                DropdownMenuItem<String?>(value: a, child: Text(a)),
+            ],
+            onChanged: (v) => setState(() => _assigneeFilter = v),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AssigneeOptions {
+  final List<String> named;
+  final bool hasUnassigned;
+
+  const _AssigneeOptions({required this.named, required this.hasUnassigned});
 }
 
 class _PageState {
