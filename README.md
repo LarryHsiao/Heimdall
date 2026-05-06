@@ -54,7 +54,6 @@ fvm flutter run -d macos     # or: -d windows
 
 - Window-position and size memory (`window_manager`).
 - Auto-refresh on a configurable timer.
-- macOS Keychain entitlement declared in `macos/Runner/*.entitlements`.
 - Tests beyond the boot smoke test.
 
 ## Project Layout

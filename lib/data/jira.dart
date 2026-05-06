@@ -23,7 +23,7 @@ class Jira {
       '$base/rest/api/3/search/jql',
       queryParameters: {
         'jql': filter.jql,
-        'fields': 'summary,status',
+        'fields': 'summary,status,issuetype,parent,priority,assignee',
         'maxResults': 50,
       },
       options: Options(headers: {'Authorization': 'Basic $auth'}),
@@ -47,11 +47,24 @@ class Jira {
     final status = (fields['status'] as Map<String, dynamic>?) ?? const {};
     final category =
         (status['statusCategory'] as Map<String, dynamic>?) ?? const {};
+    final type = (fields['issuetype'] as Map<String, dynamic>?) ?? const {};
+    final parent = (fields['parent'] as Map<String, dynamic>?) ?? const {};
+    final parentFields =
+        (parent['fields'] as Map<String, dynamic>?) ?? const {};
+    final priority =
+        (fields['priority'] as Map<String, dynamic>?) ?? const {};
+    final assignee =
+        (fields['assignee'] as Map<String, dynamic>?) ?? const {};
     return JiraTicket(
       key: (issue['key'] as String?) ?? '',
       summary: (fields['summary'] as String?) ?? '',
       statusName: (status['name'] as String?) ?? '',
       statusCategory: (category['name'] as String?) ?? '',
+      issueType: (type['name'] as String?) ?? '',
+      priority: (priority['name'] as String?) ?? '',
+      assignee: (assignee['displayName'] as String?) ?? '',
+      parentKey: (parent['key'] as String?) ?? '',
+      parentSummary: (parentFields['summary'] as String?) ?? '',
     );
   }
 }
