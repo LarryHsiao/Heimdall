@@ -579,7 +579,7 @@ class _SectionViewState extends State<_SectionView> {
         _bodyCell(t, _typeCell(row)),
         _bodyCell(t, Text(t.key)),
         _bodyCell(t, _summaryCell(t, row.parentCaption, theme)),
-        _bodyCell(t, Text(t.priority.isEmpty ? '—' : t.priority)),
+        _bodyCell(t, _priorityCell(t)),
         _bodyCell(t, Text(t.assignee.isEmpty ? '—' : t.assignee)),
         _bodyCell(t, Text(t.statusName, overflow: TextOverflow.ellipsis)),
       ],
@@ -617,6 +617,52 @@ class _SectionViewState extends State<_SectionView> {
         child: Icon(icon, size: 18),
       ),
     );
+  }
+
+  Widget _priorityCell(JiraTicket t) {
+    if (t.priority.isEmpty) return const SizedBox.shrink();
+    return Tooltip(
+      message: t.priority,
+      child: Icon(
+        _priorityIcon(t.priority),
+        color: _priorityColor(t.priority),
+        size: 18,
+      ),
+    );
+  }
+
+  IconData _priorityIcon(String p) {
+    switch (p.toLowerCase()) {
+      case 'highest':
+        return Icons.keyboard_double_arrow_up;
+      case 'high':
+        return Icons.keyboard_arrow_up;
+      case 'medium':
+        return Icons.drag_handle;
+      case 'low':
+        return Icons.keyboard_arrow_down;
+      case 'lowest':
+        return Icons.keyboard_double_arrow_down;
+      default:
+        return Icons.remove;
+    }
+  }
+
+  Color _priorityColor(String p) {
+    switch (p.toLowerCase()) {
+      case 'highest':
+        return Colors.red.shade700;
+      case 'high':
+        return Colors.red.shade400;
+      case 'medium':
+        return Colors.orange;
+      case 'low':
+        return Colors.blue.shade400;
+      case 'lowest':
+        return Colors.blue.shade700;
+      default:
+        return Colors.grey;
+    }
   }
 
   bool _isSubtask(String type) {
