@@ -118,6 +118,10 @@ class _TicketsPageState extends State<TicketsPage> {
     _writeSettings(_settings.copyWith(column: column, ascending: ascending));
   }
 
+  void _onColumnWidthChange(SortColumn column, double width) {
+    _writeSettings(_settings.setWidth(column, width));
+  }
+
   void _writeSettings(ViewSettings next) {
     setState(() {
       _settings = next;
@@ -196,6 +200,7 @@ class _TicketsPageState extends State<TicketsPage> {
           section: data.sections[i],
           settings: _settings,
           onSort: _onSort,
+          onColumnWidthChange: _onColumnWidthChange,
           onTicketTap: (t) => _openTicket(data.credentials!, t),
         ),
       ),
@@ -266,12 +271,14 @@ class _SectionView extends StatefulWidget {
   final FilterSection section;
   final ViewSettings settings;
   final void Function(SortColumn column, bool ascending) onSort;
+  final void Function(SortColumn column, double width) onColumnWidthChange;
   final ValueChanged<JiraTicket> onTicketTap;
 
   const _SectionView({
     required this.section,
     required this.settings,
     required this.onSort,
+    required this.onColumnWidthChange,
     required this.onTicketTap,
   });
 
@@ -335,13 +342,13 @@ class _SectionViewState extends State<_SectionView> {
     final theme = Theme.of(context);
     final rows = _arrange(section.tickets);
     return Table(
-      columnWidths: const {
-        0: IntrinsicColumnWidth(),
-        1: IntrinsicColumnWidth(),
-        2: FlexColumnWidth(),
-        3: IntrinsicColumnWidth(),
-        4: IntrinsicColumnWidth(),
-        5: IntrinsicColumnWidth(),
+      columnWidths: {
+        0: FixedColumnWidth(settings.widthOf(SortColumn.type)),
+        1: FixedColumnWidth(settings.widthOf(SortColumn.key)),
+        2: const FlexColumnWidth(),
+        3: FixedColumnWidth(settings.widthOf(SortColumn.priority)),
+        4: FixedColumnWidth(settings.widthOf(SortColumn.assignee)),
+        5: FixedColumnWidth(settings.widthOf(SortColumn.status)),
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       border: TableBorder(
@@ -358,17 +365,31 @@ class _SectionViewState extends State<_SectionView> {
     return TableRow(
       decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest),
       children: [
-        _headerCell('Type', SortColumn.type),
-        _headerCell('Key', SortColumn.key),
-        _headerCell('Summary', SortColumn.summary),
-        _headerCell('Pri', SortColumn.priority),
-        _headerCell('Assignee', SortColumn.assignee),
-        _headerCell('Status', SortColumn.status),
+        _headerCell(theme, 'Type', SortColumn.type, resizable: true),
+        _headerCell(theme, 'Key', SortColumn.key, resizable: true),
+        _headerCell(theme, 'Summary', SortColumn.summary, resizable: false),
+        _headerCell(theme, 'Pri', SortColumn.priority, resizable: true),
+        _headerCell(theme, 'Assignee', SortColumn.assignee, resizable: true),
+        _headerCell(theme, 'Status', SortColumn.status, resizable: true),
       ],
     );
   }
 
-  Widget _headerCell(String label, SortColumn column) {
+  Widget _headerCell(
+    ThemeData theme,
+    String label,
+    SortColumn column, {
+    required bool resizable,
+  }) {
+    return Row(
+      children: [
+        Expanded(child: _headerLabel(label, column)),
+        if (resizable) _resizeHandle(theme, column),
+      ],
+    );
+  }
+
+  Widget _headerLabel(String label, SortColumn column) {
     final active = settings.column == column;
     return InkWell(
       onTap: () =>
@@ -376,9 +397,15 @@ class _SectionViewState extends State<_SectionView> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+              ),
+            ),
             const SizedBox(width: 4),
             Opacity(
               opacity: active ? 1 : 0,
@@ -388,6 +415,30 @@ class _SectionViewState extends State<_SectionView> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _resizeHandle(ThemeData theme, SortColumn column) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragUpdate: (details) {
+          final next =
+              (settings.widthOf(column) + details.delta.dx).clamp(40.0, 400.0);
+          widget.onColumnWidthChange(column, next);
+        },
+        child: SizedBox(
+          width: 12,
+          child: Center(
+            child: Container(
+              width: 2,
+              height: 20,
+              color: theme.colorScheme.outlineVariant,
+            ),
+          ),
         ),
       ),
     );
@@ -530,7 +581,7 @@ class _SectionViewState extends State<_SectionView> {
         _bodyCell(t, _summaryCell(t, row.parentCaption, theme)),
         _bodyCell(t, Text(t.priority.isEmpty ? '—' : t.priority)),
         _bodyCell(t, Text(t.assignee.isEmpty ? '—' : t.assignee)),
-        _bodyCell(t, Chip(label: Text(t.statusName))),
+        _bodyCell(t, Text(t.statusName, overflow: TextOverflow.ellipsis)),
       ],
     );
   }
