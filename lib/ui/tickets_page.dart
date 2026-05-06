@@ -816,10 +816,12 @@ class _SectionViewState extends State<_SectionView> {
       );
       return;
     }
+    final sorted = [...transitions]
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     final selectedId = await showMenu<String>(
       context: context,
       position: position,
-      items: transitions
+      items: sorted
           .map((tr) => PopupMenuItem<String>(
                 value: tr.id,
                 child: Text(tr.name),
