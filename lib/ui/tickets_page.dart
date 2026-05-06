@@ -192,17 +192,41 @@ class _TicketsPageState extends State<TicketsPage> {
         onAction: _addFilter,
       );
     }
-    return RefreshIndicator(
-      onRefresh: () async => _refresh(),
-      child: ListView.builder(
-        itemCount: data.sections.length,
-        itemBuilder: (_, i) => _SectionView(
-          section: data.sections[i],
-          settings: _settings,
-          onSort: _onSort,
-          onColumnWidthChange: _onColumnWidthChange,
-          onTicketTap: (t) => _openTicket(data.credentials!, t),
-        ),
+    final keyId = data.sections.map((s) => s.filter.id).join(',');
+    return DefaultTabController(
+      key: ValueKey(keyId),
+      length: data.sections.length,
+      child: Column(
+        children: [
+          Material(
+            color: Theme.of(context).colorScheme.surface,
+            child: TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              tabs: data.sections
+                  .map((s) => Tab(text: s.filter.name))
+                  .toList(),
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: data.sections
+                  .map(
+                    (s) => SingleChildScrollView(
+                      child: _SectionView(
+                        section: s,
+                        settings: _settings,
+                        onSort: _onSort,
+                        onColumnWidthChange: _onColumnWidthChange,
+                        onTicketTap: (t) =>
+                            _openTicket(data.credentials!, t),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -294,19 +318,12 @@ class _SectionViewState extends State<_SectionView> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            section.filter.name,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        ),
-        ..._content(context),
-        const Divider(height: 24),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: _content(context),
+      ),
     );
   }
 
@@ -395,7 +412,7 @@ class _SectionViewState extends State<_SectionView> {
       onTap: () =>
           widget.onSort(column, active ? !settings.ascending : true),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
         child: Row(
           children: [
             Flexible(
@@ -406,7 +423,7 @@ class _SectionViewState extends State<_SectionView> {
                 softWrap: false,
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 2),
             Opacity(
               opacity: active ? 1 : 0,
               child: Icon(
