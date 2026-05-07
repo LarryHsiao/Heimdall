@@ -53,7 +53,7 @@ fvm flutter run -d macos     # or: -d windows
    - A **filter ID** (e.g. `10363`) — Heimdall wraps it as `filter = 10363`
    - A raw **JQL** expression (e.g. `assignee = currentUser() AND resolution = Unresolved`)
 4. Each filter becomes its own tab across the top. Tickets render in a sortable, resizable table (Type · Key · Summary · Pri · Assignee · Status). Sub-tasks indent under their parent in **Grouped** mode; **Flat** mode treats every row as its own line — toggle in the AppBar.
-5. Click most cells to open the ticket in the default browser. Click the **Status** cell to see available transitions and pick one — Heimdall calls Jira's transition endpoint and refreshes the section.
+5. Click most cells to open the ticket in the in-app **detail page** — header, status pill, type and priority chips, assignee/reporter/dates, and the description rendered as Markdown. The detail page bears its own *Open in browser* and *Refresh* actions, and the status pill there pops the same transition menu as the table. Click the table's **Status** cell directly to skip the detail page and pick a transition in place — Heimdall calls Jira's transition endpoint and refreshes the section.
 
 ## View
 
@@ -62,6 +62,7 @@ fvm flutter run -d macos     # or: -d windows
 - **Resize** — drag the divider on a header's right edge; widths persist across launches.
 - **Quick filter** — assignee dropdown to the right of the tab strip; filters in memory, never touches Jira's JQL.
 - **Mode toggle** — Grouped (default) or Flat, in the AppBar; persists across launches.
+- **Detail page** — row click opens it; description ADF is converted to Markdown and rendered with `flutter_markdown_plus`.
 
 ## Storage
 
@@ -92,14 +93,18 @@ lib/
     jira_credentials.dart   model
     jira_filter.dart        model + JQL coercion
     jira_ticket.dart        model
+    jira_issue.dart         ticket + description + reporter + dates
     jira_transition.dart    model
     view_settings.dart      view mode, sort, column widths
     vault.dart              credentials in secure storage
     filters.dart            filters in shared_preferences
     preferences.dart        view settings in shared_preferences
-    jira.dart               REST gateway (search/jql + transitions)
+    jira.dart               REST gateway (search/jql + issue + transitions)
+    adf.dart                Atlassian Document Format → Markdown
   ui/
     tickets_page.dart       main view
+    ticket_detail_page.dart detail surface for a single ticket
+    ticket_chrome.dart      type / priority icon mappings
     settings_page.dart      credentials form
     filters_page.dart       filter list management
     filter_form_page.dart   add / edit a filter

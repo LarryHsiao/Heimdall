@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../data/filters.dart';
 import '../data/jira.dart';
@@ -13,6 +12,8 @@ import '../data/view_settings.dart';
 import 'filter_form_page.dart';
 import 'filters_page.dart';
 import 'settings_page.dart';
+import 'ticket_chrome.dart';
+import 'ticket_detail_page.dart';
 
 class TicketsPage extends StatefulWidget {
   const TicketsPage({super.key});
@@ -153,13 +154,21 @@ class _TicketsPageState extends State<TicketsPage> {
     }
   }
 
-  Future<void> _openTicket(
+  Future<void> _openDetail(
     JiraCredentials credentials,
     JiraTicket ticket,
   ) async {
-    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
-    final uri = Uri.parse('$base/browse/${ticket.key}');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TicketDetailPage(
+          initial: ticket,
+          baseUrl: credentials.baseUrl,
+          onLoad: () => _jira.issue(ticket, credentials),
+          onLoadTransitions: () => _loadTransitions(ticket),
+          onApplyTransition: (tr) => _applyTransition(ticket, tr),
+        ),
+      ),
+    );
   }
 
   Future<List<JiraTransition>> _loadTransitions(JiraTicket ticket) async {
@@ -297,7 +306,7 @@ class _TicketsPageState extends State<TicketsPage> {
                         onSort: _onSort,
                         onColumnWidthChange: _onColumnWidthChange,
                         onTicketTap: (t) =>
-                            _openTicket(data.credentials!, t),
+                            _openDetail(data.credentials!, t),
                         onLoadTransitions: _loadTransitions,
                         onApplyTransition: _applyTransition,
                       ),
@@ -841,8 +850,8 @@ class _SectionViewState extends State<_SectionView> {
 
   Widget _typeCell(_Row row) {
     final t = row.ticket;
-    final orphanSub = _isSubtask(t.issueType) && !row.parentInList;
-    final icon = orphanSub ? Icons.check_box_outlined : _iconOf(t.issueType);
+    final orphanSub = t.isSubtask && !row.parentInList;
+    final icon = orphanSub ? Icons.check_box_outlined : t.typeIcon;
     return Padding(
       padding: EdgeInsets.only(left: row.indented ? 24 : 0),
       child: Tooltip(
@@ -857,50 +866,11 @@ class _SectionViewState extends State<_SectionView> {
     return Tooltip(
       message: t.priority,
       child: Icon(
-        _priorityIcon(t.priority),
-        color: _priorityColor(t.priority),
+        t.priorityIcon,
+        color: t.priorityColor,
         size: 18,
       ),
     );
-  }
-
-  IconData _priorityIcon(String p) {
-    switch (p.toLowerCase()) {
-      case 'highest':
-        return Icons.keyboard_double_arrow_up;
-      case 'high':
-        return Icons.keyboard_arrow_up;
-      case 'medium':
-        return Icons.drag_handle;
-      case 'low':
-        return Icons.keyboard_arrow_down;
-      case 'lowest':
-        return Icons.keyboard_double_arrow_down;
-      default:
-        return Icons.remove;
-    }
-  }
-
-  Color _priorityColor(String p) {
-    switch (p.toLowerCase()) {
-      case 'highest':
-        return Colors.red.shade700;
-      case 'high':
-        return Colors.red.shade400;
-      case 'medium':
-        return Colors.orange;
-      case 'low':
-        return Colors.blue.shade400;
-      case 'lowest':
-        return Colors.blue.shade700;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  bool _isSubtask(String type) {
-    final t = type.toLowerCase();
-    return t == 'sub-task' || t == 'subtask';
   }
 
   Widget _summaryCell(JiraTicket t, bool showCaption, ThemeData theme) {
@@ -929,21 +899,4 @@ class _SectionViewState extends State<_SectionView> {
     );
   }
 
-  IconData _iconOf(String type) {
-    switch (type.toLowerCase()) {
-      case 'bug':
-        return Icons.bug_report_outlined;
-      case 'story':
-        return Icons.bookmark_outline;
-      case 'task':
-        return Icons.check_box_outlined;
-      case 'epic':
-        return Icons.flag_outlined;
-      case 'sub-task':
-      case 'subtask':
-        return Icons.subdirectory_arrow_right;
-      default:
-        return Icons.circle_outlined;
-    }
-  }
 }

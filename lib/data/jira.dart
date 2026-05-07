@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import 'jira_credentials.dart';
 import 'jira_filter.dart';
+import 'jira_issue.dart';
 import 'jira_ticket.dart';
 import 'jira_transition.dart';
 
@@ -66,6 +67,49 @@ class Jira {
       assignee: (assignee['displayName'] as String?) ?? '',
       parentKey: (parent['key'] as String?) ?? '',
       parentSummary: (parentFields['summary'] as String?) ?? '',
+    );
+  }
+
+  Future<JiraIssue> issue(
+    JiraTicket ticket,
+    JiraCredentials credentials,
+  ) async {
+    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
+    final response = await _dio.get<Map<String, dynamic>>(
+      '$base/rest/api/3/issue/${ticket.key}',
+      queryParameters: {
+        'fields': 'summary,status,issuetype,parent,priority,assignee,'
+            'reporter,description,created,updated',
+      },
+      options: Options(headers: {'Authorization': 'Basic $auth'}),
+    );
+    return _issueOf(response.data);
+  }
+
+  JiraIssue _issueOf(Map<String, dynamic>? body) {
+    if (body == null) {
+      return const JiraIssue(
+        ticket: JiraTicket(
+          key: '',
+          summary: '',
+          statusName: '',
+          statusCategory: '',
+          issueType: '',
+        ),
+      );
+    }
+    final fields = (body['fields'] as Map<String, dynamic>?) ?? const {};
+    final reporter =
+        (fields['reporter'] as Map<String, dynamic>?) ?? const {};
+    return JiraIssue(
+      ticket: _ticketOf(body),
+      reporter: (reporter['displayName'] as String?) ?? '',
+      created: (fields['created'] as String?) ?? '',
+      updated: (fields['updated'] as String?) ?? '',
+      description: fields['description'] as Map<String, dynamic>?,
     );
   }
 
