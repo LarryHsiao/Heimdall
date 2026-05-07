@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import 'jira_comment.dart';
 import 'jira_credentials.dart';
 import 'jira_filter.dart';
 import 'jira_issue.dart';
@@ -111,6 +112,73 @@ class Jira {
       updated: (fields['updated'] as String?) ?? '',
       description: fields['description'] as Map<String, dynamic>?,
     );
+  }
+
+  Future<List<JiraComment>> comments(
+    JiraTicket ticket,
+    JiraCredentials credentials,
+  ) async {
+    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
+    final response = await _dio.get<Map<String, dynamic>>(
+      '$base/rest/api/3/issue/${ticket.key}/comment',
+      options: Options(headers: {'Authorization': 'Basic $auth'}),
+    );
+    final list = (response.data?['comments'] as List?) ?? const [];
+    return list.map(_commentOf).toList();
+  }
+
+  Future<JiraComment> postComment(
+    JiraTicket ticket,
+    String text,
+    JiraCredentials credentials,
+  ) async {
+    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
+    final response = await _dio.post<Map<String, dynamic>>(
+      '$base/rest/api/3/issue/${ticket.key}/comment',
+      data: {'body': _adfFromPlain(text)},
+      options: Options(headers: {'Authorization': 'Basic $auth'}),
+    );
+    return _commentOf(response.data ?? const <String, dynamic>{});
+  }
+
+  JiraComment _commentOf(dynamic raw) {
+    final map = (raw as Map<String, dynamic>?) ?? const {};
+    final author = (map['author'] as Map<String, dynamic>?) ?? const {};
+    return JiraComment(
+      id: (map['id'] as String?) ?? '',
+      author: (author['displayName'] as String?) ?? '',
+      created: (map['created'] as String?) ?? '',
+      updated: (map['updated'] as String?) ?? '',
+      body: map['body'] as Map<String, dynamic>?,
+    );
+  }
+
+  Map<String, dynamic> _adfFromPlain(String text) {
+    final lines = text.split('\n');
+    final paragraphs = <Map<String, dynamic>>[];
+    for (final line in lines) {
+      if (line.isEmpty) {
+        paragraphs.add({'type': 'paragraph'});
+      } else {
+        paragraphs.add({
+          'type': 'paragraph',
+          'content': [
+            {'type': 'text', 'text': line}
+          ],
+        });
+      }
+    }
+    return {
+      'type': 'doc',
+      'version': 1,
+      'content': paragraphs,
+    };
   }
 
   Future<List<JiraTransition>> transitions(

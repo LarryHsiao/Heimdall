@@ -3,10 +3,13 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/adf.dart';
+import '../data/jira_comment.dart';
 import '../data/jira_issue.dart';
 import '../data/jira_ticket.dart';
 import '../data/jira_transition.dart';
 import 'ticket_chrome.dart';
+
+const double _wideThreshold = 800;
 
 class TicketDetailPage extends StatefulWidget {
   final JiraTicket initial;
@@ -14,6 +17,8 @@ class TicketDetailPage extends StatefulWidget {
   final Future<JiraIssue> Function() onLoad;
   final Future<List<JiraTransition>> Function() onLoadTransitions;
   final Future<void> Function(JiraTransition) onApplyTransition;
+  final Future<List<JiraComment>> Function() onLoadComments;
+  final Future<JiraComment> Function(String) onPostComment;
 
   const TicketDetailPage({
     super.key,
@@ -22,6 +27,8 @@ class TicketDetailPage extends StatefulWidget {
     required this.onLoad,
     required this.onLoadTransitions,
     required this.onApplyTransition,
+    required this.onLoadComments,
+    required this.onPostComment,
   });
 
   @override
@@ -33,13 +40,26 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
   bool _loading = true;
   String? _error;
 
+  List<JiraComment> _comments = const [];
+  bool _commentsLoading = true;
+  String? _commentsError;
+  bool _posting = false;
+
   late JiraTicket _ticket;
+  final TextEditingController _input = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _ticket = widget.initial;
     _load();
+    _loadComments();
+  }
+
+  @override
+  void dispose() {
+    _input.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -61,6 +81,47 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
         _loading = false;
         _error = '$e';
       });
+    }
+  }
+
+  Future<void> _loadComments() async {
+    setState(() {
+      _commentsLoading = true;
+      _commentsError = null;
+    });
+    try {
+      final list = await widget.onLoadComments();
+      if (!mounted) return;
+      setState(() {
+        _comments = list;
+        _commentsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _commentsLoading = false;
+        _commentsError = '$e';
+      });
+    }
+  }
+
+  Future<void> _post() async {
+    final text = _input.text.trim();
+    if (text.isEmpty || _posting) return;
+    setState(() => _posting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final added = await widget.onPostComment(text);
+      if (!mounted) return;
+      setState(() {
+        _comments = [..._comments, added];
+        _posting = false;
+      });
+      _input.clear();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _posting = false);
+      messenger.showSnackBar(SnackBar(content: Text('Post failed: $e')));
     }
   }
 
@@ -99,23 +160,234 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
     if (_error != null && _issue == null) {
       return Center(child: Text('Error: $_error'));
     }
+    return LayoutBuilder(
+      builder: (ctx, c) {
+        if (c.maxWidth >= _wideThreshold) return _wideLayout();
+        return _narrowLayout();
+      },
+    );
+  }
+
+  Widget _wideLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          flex: 3,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: _detailColumn(),
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        SizedBox(width: 360, child: _commentsPane()),
+      ],
+    );
+  }
+
+  Widget _narrowLayout() {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _header(context),
-          const SizedBox(height: 16),
-          _metaBar(context),
-          const SizedBox(height: 16),
-          _people(context),
+          _detailColumn(),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Divider(height: 1),
           ),
-          _description(context),
+          _commentsHeader(),
+          const SizedBox(height: 8),
+          ..._commentsBodyNarrow(),
         ],
       ),
+    );
+  }
+
+  Widget _detailColumn() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _header(context),
+        const SizedBox(height: 16),
+        _metaBar(context),
+        const SizedBox(height: 16),
+        _people(context),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Divider(height: 1),
+        ),
+        _description(context),
+      ],
+    );
+  }
+
+  Widget _commentsPane() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: _commentsHeader(),
+        ),
+        const Divider(height: 1),
+        Expanded(child: _commentsList()),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: _commentInput(),
+        ),
+      ],
+    );
+  }
+
+  Widget _commentsHeader() {
+    return Text(
+      'Comments',
+      style: Theme.of(context).textTheme.titleMedium,
+    );
+  }
+
+  Widget _commentsList() {
+    if (_commentsLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_commentsError != null) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Error: $_commentsError'),
+      );
+    }
+    if (_comments.isEmpty) return _emptyComments();
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: _comments.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
+      itemBuilder: (_, i) => _commentTile(_comments[i]),
+    );
+  }
+
+  Widget _emptyComments() {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Text(
+        'No comments.',
+        style: TextStyle(
+          color: theme.colorScheme.outline,
+          fontStyle: FontStyle.italic,
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _commentsBodyNarrow() {
+    if (_commentsLoading) {
+      return const [Center(child: CircularProgressIndicator())];
+    }
+    if (_commentsError != null) {
+      return [Text('Error: $_commentsError')];
+    }
+    final body = <Widget>[];
+    if (_comments.isEmpty) {
+      body.add(_emptyComments());
+    } else {
+      for (final c in _comments) {
+        body.add(_commentTile(c));
+        body.add(const SizedBox(height: 16));
+      }
+    }
+    body.add(const Divider(height: 1));
+    body.add(const SizedBox(height: 12));
+    body.add(_commentInput());
+    return body;
+  }
+
+  Widget _commentTile(JiraComment c) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _commentTileHeader(c),
+        const SizedBox(height: 4),
+        _commentTileBody(c),
+      ],
+    );
+  }
+
+  Widget _commentTileHeader(JiraComment c) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            c.author.isEmpty ? '—' : c.author,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Text(
+          _date(c.created),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.outline,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _commentTileBody(JiraComment c) {
+    final markdown = AdfMarkdown(c.body).text();
+    if (markdown.isEmpty) return const Text('—');
+    return MarkdownBody(
+      data: markdown,
+      selectable: true,
+      onTapLink: (_, href, _) {
+        if (href == null || href.isEmpty) return;
+        launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
+      },
+    );
+  }
+
+  Widget _commentInput() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _input,
+            minLines: 1,
+            maxLines: 4,
+            enabled: !_posting,
+            decoration: const InputDecoration(
+              hintText: 'Add a comment',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        _posting ? _postingSpinner() : _sendButton(),
+      ],
+    );
+  }
+
+  Widget _postingSpinner() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8),
+      child: SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ),
+    );
+  }
+
+  Widget _sendButton() {
+    return IconButton(
+      tooltip: 'Send',
+      onPressed: _post,
+      icon: const Icon(Icons.send),
     );
   }
 

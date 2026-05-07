@@ -166,6 +166,9 @@ class _TicketsPageState extends State<TicketsPage> {
           onLoad: () => _jira.issue(ticket, credentials),
           onLoadTransitions: () => _loadTransitions(ticket),
           onApplyTransition: (tr) => _applyTransition(ticket, tr),
+          onLoadComments: () => _jira.comments(ticket, credentials),
+          onPostComment: (text) =>
+              _jira.postComment(ticket, text, credentials),
         ),
       ),
     );

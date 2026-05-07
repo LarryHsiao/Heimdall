@@ -10,7 +10,7 @@ Named for the Norse watchman of Bifröst, who marks what approaches — and, wit
 
 Jira's web UI is heavy, slow, and screen-greedy. The friction is not its container — it is the editing chrome itself: the busy panels, the modal dialogs, the bloat. Heimdall ships only what the editing chrome was hiding: a list of titles and statuses, refreshed on demand.
 
-Writes beyond status transitions — comments, summary edits, field edits, assignee changes — are deliberately not in scope. The web handles those, and so does any Jira CLI. Heimdall *shows*, and lets you usher a ticket along its workflow.
+Writes that move a ticket along its workflow — status transitions and plain-text comments — are supported, since both are voice and pace, not editing. Structural edits (summary, field changes, assignee, attachments, links) stay in the web UI. The web handles those, and so does any Jira CLI. Heimdall *shows*, and lets you usher a ticket along its workflow.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ fvm flutter run -d macos     # or: -d windows
    - A **filter ID** (e.g. `10363`) — Heimdall wraps it as `filter = 10363`
    - A raw **JQL** expression (e.g. `assignee = currentUser() AND resolution = Unresolved`)
 4. Each filter becomes its own tab across the top. Tickets render in a sortable, resizable table (Type · Key · Summary · Pri · Assignee · Status). Sub-tasks indent under their parent in **Grouped** mode; **Flat** mode treats every row as its own line — toggle in the AppBar.
-5. Click most cells to open the ticket in the in-app **detail page** — header, status pill, type and priority chips, assignee/reporter/dates, and the description rendered as Markdown. The detail page bears its own *Open in browser* and *Refresh* actions, and the status pill there pops the same transition menu as the table. Click the table's **Status** cell directly to skip the detail page and pick a transition in place — Heimdall calls Jira's transition endpoint and refreshes the section.
+5. Click most cells to open the ticket in the in-app **detail page** — header, status pill, type and priority chips, assignee/reporter/dates, and the description rendered as Markdown. A **Comments** pane to the right (or below, on a narrow window) lists existing comments and accepts new plain-text ones. The detail page bears its own *Open in browser* and *Refresh* actions, and the status pill there pops the same transition menu as the table. Click the table's **Status** cell directly to skip the detail page and pick a transition in place — Heimdall calls Jira's transition endpoint and refreshes the section.
 
 ## View
 
@@ -63,6 +63,7 @@ fvm flutter run -d macos     # or: -d windows
 - **Quick filter** — assignee dropdown to the right of the tab strip; filters in memory, never touches Jira's JQL.
 - **Mode toggle** — Grouped (default) or Flat, in the AppBar; persists across launches.
 - **Detail page** — row click opens it; description ADF is converted to Markdown and rendered with `flutter_markdown_plus`.
+- **Comments pane** — read existing comments, post new plain-text ones; lives at the right of the detail page on wide windows, below the description on narrow ones.
 
 ## Storage
 
@@ -73,7 +74,8 @@ fvm flutter run -d macos     # or: -d windows
 ## Out of Scope
 
 - Tray residency, menu-bar icon, background polling.
-- Writes beyond status transitions — comments, summary edits, field edits, and assignee changes stay in the web UI.
+- Writes beyond status transitions and plain-text comments — summary edits, field edits, assignee changes, attachments, links — stay in the web UI.
+- Comment editing, deletion, threading, mentions, rich formatting — comments are post-only and plain text.
 - Boards, sprints, admin, full-text search.
 - Default filters shipped with the app — every filter is user-added.
 
@@ -98,12 +100,13 @@ lib/
     jira_filter.dart        model + JQL coercion
     jira_ticket.dart        model
     jira_issue.dart         ticket + description + reporter + dates
+    jira_comment.dart       model
     jira_transition.dart    model
     view_settings.dart      view mode, sort, column widths
     vault.dart              credentials in secure storage
     filters.dart            filters in shared_preferences
     preferences.dart        view settings in shared_preferences
-    jira.dart               REST gateway (search/jql + issue + transitions)
+    jira.dart               REST gateway (search/jql + issue + comments + transitions)
     adf.dart                Atlassian Document Format → Markdown
   ui/
     tickets_page.dart       main view
