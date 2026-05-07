@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,6 +12,7 @@ import '../data/jira_transition.dart';
 import 'ticket_chrome.dart';
 
 const double _wideThreshold = 800;
+const Duration _pollInterval = Duration(seconds: 30);
 
 class TicketDetailPage extends StatefulWidget {
   final JiraTicket initial;
@@ -35,7 +38,8 @@ class TicketDetailPage extends StatefulWidget {
   State<TicketDetailPage> createState() => _TicketDetailPageState();
 }
 
-class _TicketDetailPageState extends State<TicketDetailPage> {
+class _TicketDetailPageState extends State<TicketDetailPage>
+    with WidgetsBindingObserver {
   JiraIssue? _issue;
   bool _loading = true;
   String? _error;
@@ -47,19 +51,69 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
 
   late JiraTicket _ticket;
   final TextEditingController _input = TextEditingController();
+  Timer? _poll;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _ticket = widget.initial;
     _load();
-    _loadComments();
+    _loadComments().then((_) => _startPolling());
   }
 
   @override
   void dispose() {
+    _stopPolling();
+    WidgetsBinding.instance.removeObserver(this);
     _input.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startPolling();
+    } else {
+      _stopPolling();
+    }
+  }
+
+  void _startPolling() {
+    if (_poll != null) return;
+    _poll = Timer.periodic(_pollInterval, (_) => _pollComments());
+  }
+
+  void _stopPolling() {
+    _poll?.cancel();
+    _poll = null;
+  }
+
+  Future<void> _pollComments() async {
+    if (_posting || _commentsLoading) return;
+    try {
+      final fresh = await widget.onLoadComments();
+      if (!mounted) return;
+      setState(() => _comments = _merged(_comments, fresh));
+    } catch (_) {
+      // Quiet failure — manual Refresh surfaces persistent errors.
+    }
+  }
+
+  List<JiraComment> _merged(
+    List<JiraComment> existing,
+    List<JiraComment> fresh,
+  ) {
+    final byId = {for (final c in existing) c.id: c};
+    for (final c in fresh) {
+      byId[c.id] = c;
+    }
+    final order = <String>[
+      for (final c in existing) c.id,
+      for (final c in fresh)
+        if (!existing.any((e) => e.id == c.id)) c.id,
+    ];
+    return [for (final id in order) byId[id]!];
   }
 
   Future<void> _load() async {
@@ -125,6 +179,10 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
     }
   }
 
+  Future<void> _refreshAll() async {
+    await Future.wait([_load(), _loadComments()]);
+  }
+
   Future<void> _openInBrowser() async {
     final base = widget.baseUrl.replaceAll(RegExp(r'/+$'), '');
     final uri = Uri.parse('$base/browse/${_ticket.key}');
@@ -144,7 +202,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
           ),
           IconButton(
             tooltip: 'Refresh',
-            onPressed: _loading ? null : _load,
+            onPressed: _loading ? null : _refreshAll,
             icon: const Icon(Icons.refresh),
           ),
         ],

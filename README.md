@@ -63,7 +63,7 @@ fvm flutter run -d macos     # or: -d windows
 - **Quick filter** — assignee dropdown to the right of the tab strip; filters in memory, never touches Jira's JQL.
 - **Mode toggle** — Grouped (default) or Flat, in the AppBar; persists across launches.
 - **Detail page** — row click opens it; description ADF is converted to Markdown and rendered with `flutter_markdown_plus`.
-- **Comments pane** — read existing comments, post new plain-text ones; lives at the right of the detail page on wide windows, below the description on narrow ones.
+- **Comments pane** — read existing comments, post new plain-text ones; lives at the right of the detail page on wide windows, below the description on narrow ones. Auto-refreshes every 30 s while the window is focused; pauses when blurred or hidden.
 
 ## Storage
 
