@@ -83,6 +83,10 @@ fvm flutter run -d macos     # or: -d windows
 - Auto-refresh on a configurable timer.
 - Tests beyond the boot smoke test.
 
+## Issues
+
+Bug reports and feature requests live on the project's [GitHub Issues](https://github.com/LarryHsiao/Heimdall/issues).
+
 ## Project Layout
 
 ```
