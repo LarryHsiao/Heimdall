@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import 'jira_attachment.dart';
 import 'jira_comment.dart';
 import 'jira_credentials.dart';
 import 'jira_filter.dart';
@@ -83,7 +84,8 @@ class Jira {
       '$base/rest/api/3/issue/${ticket.key}',
       queryParameters: {
         'fields': 'summary,status,issuetype,parent,priority,assignee,'
-            'reporter,description,created,updated',
+            'reporter,description,created,updated,attachment',
+        'expand': 'renderedFields',
       },
       options: Options(headers: {'Authorization': 'Basic $auth'}),
     );
@@ -105,12 +107,21 @@ class Jira {
     final fields = (body['fields'] as Map<String, dynamic>?) ?? const {};
     final reporter =
         (fields['reporter'] as Map<String, dynamic>?) ?? const {};
+    final attachments = (fields['attachment'] as List?) ?? const [];
+    final rendered =
+        (body['renderedFields'] as Map<String, dynamic>?) ?? const {};
+    final renderedDescription = (rendered['description'] as String?) ?? '';
     return JiraIssue(
       ticket: _ticketOf(body),
       reporter: (reporter['displayName'] as String?) ?? '',
       created: (fields['created'] as String?) ?? '',
       updated: (fields['updated'] as String?) ?? '',
       description: fields['description'] as Map<String, dynamic>?,
+      attachments: [
+        for (final a in attachments)
+          if (a is Map<String, dynamic>) JiraAttachment.fromJson(a),
+      ],
+      inlineImageUrls: inlineImagesFromHtml(renderedDescription),
     );
   }
 
@@ -226,3 +237,26 @@ class Jira {
     );
   }
 }
+
+final RegExp _imgSrc = RegExp(
+  r'''<img\b[^>]*\ssrc=(?:"([^"]*)"|'([^']*)')''',
+  caseSensitive: false,
+);
+
+List<String> inlineImagesFromHtml(String html) {
+  if (html.isEmpty) return const [];
+  final urls = <String>[];
+  for (final m in _imgSrc.allMatches(html)) {
+    final raw = m.group(1) ?? m.group(2) ?? '';
+    if (raw.isEmpty) continue;
+    urls.add(_decodeEntities(raw));
+  }
+  return urls;
+}
+
+String _decodeEntities(String s) => s
+    .replaceAll('&amp;', '&')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>');

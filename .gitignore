@@ -46,3 +46,6 @@ app.*.map.json
 
 # Unblurred source screenshots (only the redacted screenshot.png is checked in)
 /docs/screenshots/raw.png
+
+# Per-machine Claude Code config
+.claude/

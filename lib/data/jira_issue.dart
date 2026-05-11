@@ -1,3 +1,4 @@
+import 'jira_attachment.dart';
 import 'jira_ticket.dart';
 
 class JiraIssue {
@@ -6,6 +7,8 @@ class JiraIssue {
   final String created;
   final String updated;
   final Map<String, dynamic>? description;
+  final List<JiraAttachment> attachments;
+  final List<String> inlineImageUrls;
 
   const JiraIssue({
     required this.ticket,
@@ -13,5 +16,7 @@ class JiraIssue {
     this.created = '',
     this.updated = '',
     this.description,
+    this.attachments = const [],
+    this.inlineImageUrls = const [],
   });
 }

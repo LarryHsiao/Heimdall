@@ -5,6 +5,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/adf.dart';
+import '../data/jira_attachment.dart';
 import '../data/jira_comment.dart';
 import '../data/jira_issue.dart';
 import '../data/jira_ticket.dart';
@@ -17,6 +18,7 @@ const Duration _pollInterval = Duration(seconds: 30);
 class TicketDetailPage extends StatefulWidget {
   final JiraTicket initial;
   final String baseUrl;
+  final Map<String, String> imageHeaders;
   final Future<JiraIssue> Function() onLoad;
   final Future<List<JiraTransition>> Function() onLoadTransitions;
   final Future<void> Function(JiraTransition) onApplyTransition;
@@ -27,6 +29,7 @@ class TicketDetailPage extends StatefulWidget {
     super.key,
     required this.initial,
     required this.baseUrl,
+    this.imageHeaders = const {},
     required this.onLoad,
     required this.onLoadTransitions,
     required this.onApplyTransition,
@@ -263,6 +266,7 @@ class _TicketDetailPageState extends State<TicketDetailPage>
   }
 
   Widget _detailColumn() {
+    final attachments = _issue?.attachments ?? const <JiraAttachment>[];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -276,6 +280,13 @@ class _TicketDetailPageState extends State<TicketDetailPage>
           child: Divider(height: 1),
         ),
         _description(context),
+        if (attachments.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(height: 1),
+          ),
+          _attachments(context, attachments),
+        ],
       ],
     );
   }
@@ -612,6 +623,119 @@ class _TicketDetailPageState extends State<TicketDetailPage>
     return t > 0 ? raw.substring(0, t) : raw;
   }
 
+  Widget _attachments(BuildContext context, List<JiraAttachment> all) {
+    final theme = Theme.of(context);
+    final images = all.where((a) => a.isImage).toList();
+    final others = all.where((a) => !a.isImage).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Attachments (${all.length})',
+          style: theme.textTheme.titleMedium,
+        ),
+        const SizedBox(height: 12),
+        if (images.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [for (final a in images) _imageTile(a)],
+          ),
+        if (images.isNotEmpty && others.isNotEmpty)
+          const SizedBox(height: 12),
+        if (others.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [for (final a in others) _fileChip(a)],
+          ),
+      ],
+    );
+  }
+
+  Widget _imageTile(JiraAttachment a) {
+    final theme = Theme.of(context);
+    final url = a.thumbnailUrl.isNotEmpty ? a.thumbnailUrl : a.contentUrl;
+    return Tooltip(
+      message: a.filename,
+      child: InkWell(
+        onTap: () => _openImage(a),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: _authImage(url, fit: BoxFit.cover),
+        ),
+      ),
+    );
+  }
+
+  Widget _fileChip(JiraAttachment a) {
+    return ActionChip(
+      avatar: const Icon(Icons.insert_drive_file_outlined, size: 18),
+      label: Text(a.filename.isEmpty ? '—' : a.filename),
+      onPressed: () => _openContentInBrowser(a),
+    );
+  }
+
+  Widget _authImage(String url, {BoxFit fit = BoxFit.contain}) {
+    return Image.network(
+      url,
+      fit: fit,
+      headers: widget.imageHeaders,
+      loadingBuilder: (_, child, progress) {
+        if (progress == null) return child;
+        return const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      },
+      errorBuilder: (_, _, _) => const Center(
+        child: Icon(Icons.broken_image_outlined),
+      ),
+    );
+  }
+
+  Future<void> _openImage(JiraAttachment a) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.all(24),
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              maxScale: 8,
+              child: _authImage(a.contentUrl),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                tooltip: 'Close',
+                onPressed: () => Navigator.of(ctx).pop(),
+                icon: const Icon(Icons.close),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openContentInBrowser(JiraAttachment a) async {
+    if (a.contentUrl.isEmpty) return;
+    await launchUrl(Uri.parse(a.contentUrl), mode: LaunchMode.externalApplication);
+  }
+
   Widget _description(BuildContext context) {
     final theme = Theme.of(context);
     final markdown = AdfMarkdown(_issue?.description).text();
@@ -627,10 +751,52 @@ class _TicketDetailPageState extends State<TicketDetailPage>
     return MarkdownBody(
       data: markdown,
       selectable: true,
+      imageBuilder: _descriptionImage,
       onTapLink: (_, href, _) {
         if (href == null || href.isEmpty) return;
         launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
       },
+    );
+  }
+
+  Widget _descriptionImage(Uri uri, String? title, String? alt) {
+    if (uri.scheme == 'jira-attachment') {
+      final urls = _issue?.inlineImageUrls ?? const <String>[];
+      final index = int.tryParse(uri.path) ?? -1;
+      if (index < 0 || index >= urls.length) {
+        return const Icon(Icons.broken_image_outlined);
+      }
+      return GestureDetector(
+        onTap: () => _openInlineImage(urls[index]),
+        child: _authImage(urls[index]),
+      );
+    }
+    return Image.network(uri.toString());
+  }
+
+  Future<void> _openInlineImage(String url) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.all(24),
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              maxScale: 8,
+              child: _authImage(url),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                tooltip: 'Close',
+                onPressed: () => Navigator.of(ctx).pop(),
+                icon: const Icon(Icons.close),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

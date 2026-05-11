@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../data/filters.dart';
@@ -158,11 +160,15 @@ class _TicketsPageState extends State<TicketsPage> {
     JiraCredentials credentials,
     JiraTicket ticket,
   ) async {
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => TicketDetailPage(
           initial: ticket,
           baseUrl: credentials.baseUrl,
+          imageHeaders: {'Authorization': 'Basic $auth'},
           onLoad: () => _jira.issue(ticket, credentials),
           onLoadTransitions: () => _loadTransitions(ticket),
           onApplyTransition: (tr) => _applyTransition(ticket, tr),

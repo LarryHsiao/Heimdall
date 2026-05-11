@@ -2,10 +2,12 @@ class AdfMarkdown {
   AdfMarkdown(this._doc);
 
   final Map<String, dynamic>? _doc;
+  int _imageIndex = 0;
 
   String text() {
     final doc = _doc;
     if (doc == null) return '';
+    _imageIndex = 0;
     final content = _children(doc);
     return _blocks(content).trimRight();
   }
@@ -40,9 +42,42 @@ class AdfMarkdown {
         return '---';
       case 'panel':
         return _panel(node);
+      case 'mediaSingle':
+        return _mediaSingle(node);
+      case 'mediaGroup':
+        return _mediaGroup(node);
       default:
         return _inlines(_children(node));
     }
+  }
+
+  String _mediaSingle(Map<String, dynamic> node) {
+    final children = _children(node);
+    if (children.isEmpty) return '';
+    return _mediaImage(children.first as Map<String, dynamic>);
+  }
+
+  String _mediaGroup(Map<String, dynamic> node) {
+    final lines = <String>[];
+    for (final c in _children(node)) {
+      final line = _mediaImage(c as Map<String, dynamic>);
+      if (line.isNotEmpty) lines.add(line);
+    }
+    return lines.join('\n\n');
+  }
+
+  String _mediaImage(Map<String, dynamic> node) {
+    if ((node['type'] as String?) != 'media') return '';
+    return _mediaRef(node);
+  }
+
+  String _mediaRef(Map<String, dynamic> node) {
+    final attrs = _attrs(node);
+    final id = (attrs['id'] as String?) ?? '';
+    if (id.isEmpty) return '';
+    final alt = (attrs['alt'] as String?) ?? '';
+    final index = _imageIndex++;
+    return '![$alt](jira-attachment:$index)';
   }
 
   String _heading(Map<String, dynamic> node) {
@@ -127,6 +162,8 @@ class AdfMarkdown {
       case 'status':
       case 'date':
         return (_attrs(node)['text'] as String?) ?? '';
+      case 'mediaInline':
+        return _mediaRef(node);
       default:
         return _inlines(_children(node));
     }
