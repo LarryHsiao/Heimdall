@@ -32,9 +32,17 @@ class _TicketsPageState extends State<TicketsPage> {
 
   ViewSettings _settings = const ViewSettings();
   String? _assigneeFilter;
+  String _search = '';
+  final TextEditingController _searchController = TextEditingController();
   _PageState? _data;
   bool _loading = true;
   String? _loadError;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -223,6 +231,11 @@ class _TicketsPageState extends State<TicketsPage> {
         title: const Text('Heimdall'),
         actions: [
           IconButton(
+            tooltip: 'Open ticket by key',
+            onPressed: _openByKey,
+            icon: const Icon(Icons.tag),
+          ),
+          IconButton(
             tooltip: 'Refresh',
             onPressed: _refresh,
             icon: const Icon(Icons.refresh),
@@ -279,7 +292,7 @@ class _TicketsPageState extends State<TicketsPage> {
     if (!_isFilterValid(options)) {
       _assigneeFilter = null;
     }
-    final filtered = _filterSections(data.sections, _assigneeFilter);
+    final filtered = _filterSections(data.sections, _assigneeFilter, _search);
     final keyId = filtered.map((s) => s.filter.id).join(',');
     return DefaultTabController(
       key: ValueKey(keyId),
@@ -299,6 +312,7 @@ class _TicketsPageState extends State<TicketsPage> {
                         .toList(),
                   ),
                 ),
+                _searchField(),
                 if (options.named.isNotEmpty || options.hasUnassigned)
                   _quickFilters(options),
               ],
@@ -346,18 +360,99 @@ class _TicketsPageState extends State<TicketsPage> {
   List<FilterSection> _filterSections(
     List<FilterSection> sections,
     String? assignee,
+    String search,
   ) {
-    if (assignee == null) return sections;
+    final q = search.trim();
+    if (assignee == null && q.isEmpty) return sections;
     return sections
         .map(
           (s) => FilterSection(
             filter: s.filter,
-            tickets:
-                s.tickets.where((t) => t.assignee == assignee).toList(),
+            tickets: s.tickets
+                .where((t) =>
+                    (assignee == null || t.assignee == assignee) &&
+                    t.matchesSearch(q))
+                .toList(),
             error: s.error,
           ),
         )
         .toList();
+  }
+
+  Widget _searchField() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 0, 0),
+      child: SizedBox(
+        width: 220,
+        child: TextField(
+          controller: _searchController,
+          onChanged: (v) => setState(() => _search = v),
+          decoration: InputDecoration(
+            isDense: true,
+            prefixIcon: const Icon(Icons.search, size: 18),
+            hintText: 'Search…',
+            border: const OutlineInputBorder(),
+            suffixIcon: _search.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear',
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _search = '');
+                    },
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openByKey() async {
+    final credentials = _data?.credentials;
+    if (credentials == null) return;
+    final controller = TextEditingController();
+    try {
+      final key = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Open ticket by key'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(
+              hintText: 'e.g. PSG-1234',
+              border: OutlineInputBorder(),
+            ),
+            onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(ctx).pop(controller.text.trim()),
+              child: const Text('Open'),
+            ),
+          ],
+        ),
+      );
+      if (key == null || key.isEmpty) return;
+      final stub = JiraTicket(
+        key: key.toUpperCase(),
+        summary: '',
+        statusName: '',
+        statusCategory: '',
+        issueType: '',
+      );
+      if (!mounted) return;
+      await _openDetail(credentials, stub);
+    } finally {
+      controller.dispose();
+    }
   }
 
   Widget _quickFilters(_AssigneeOptions options) {

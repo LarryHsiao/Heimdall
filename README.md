@@ -61,6 +61,8 @@ fvm flutter run -d macos     # or: -d windows
 - **Sort** — click any column header. Click again to reverse.
 - **Resize** — drag the divider on a header's right edge; widths persist across launches.
 - **Quick filter** — assignee dropdown to the right of the tab strip; filters in memory, never touches Jira's JQL.
+- **Search** — text field beside the tab strip; live-filters visible rows by key, summary, assignee, or status (substring, case-insensitive). In memory only.
+- **Open by key** — the `#` icon in the AppBar pops a small dialog; type a key like `PSG-1234` and press Enter to jump straight to its detail page.
 - **Mode toggle** — Grouped (default) or Flat, in the AppBar; persists across launches.
 - **Detail page** — row click opens it; description ADF is converted to Markdown and rendered with `flutter_markdown_plus`.
 - **Comments pane** — read existing comments, post new plain-text ones; lives at the right of the detail page on wide windows, below the description on narrow ones. Auto-refreshes every 30 s while the window is focused; pauses when blurred or hidden.

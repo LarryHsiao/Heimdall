@@ -21,3 +21,14 @@ class JiraTicket {
     this.parentSummary = '',
   });
 }
+
+extension JiraTicketSearch on JiraTicket {
+  bool matchesSearch(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    return key.toLowerCase().contains(q) ||
+        summary.toLowerCase().contains(q) ||
+        assignee.toLowerCase().contains(q) ||
+        statusName.toLowerCase().contains(q);
+  }
+}
