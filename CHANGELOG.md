@@ -4,6 +4,11 @@ All notable changes to Heimdall are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- Inline task lists in the description — ADF `taskList`/`taskItem` nodes render as GFM checkboxes with their TODO/DONE state preserved.
+- Task-list toggling — tap a checkbox in the description to flip TODO↔DONE. Heimdall PUTs the modified description back to Jira and updates the local view optimistically; on failure the tick reverts and a snackbar names the error.
+
 ## [1.1.0] — 2026-05-11
 
 ### Added

@@ -209,6 +209,24 @@ class Jira {
     );
   }
 
+  Future<void> updateDescription(
+    JiraTicket ticket,
+    Map<String, dynamic> description,
+    JiraCredentials credentials,
+  ) async {
+    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
+    await _dio.put<dynamic>(
+      '$base/rest/api/3/issue/${ticket.key}',
+      data: {
+        'fields': {'description': description},
+      },
+      options: Options(headers: {'Authorization': 'Basic $auth'}),
+    );
+  }
+
   Future<void> transition(
     JiraTicket ticket,
     String transitionId,

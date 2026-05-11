@@ -1,3 +1,28 @@
+Map<String, dynamic> flipTaskItem(Map<String, dynamic> adf, int targetIndex) {
+  var counter = 0;
+  Map<String, dynamic> walk(Map<String, dynamic> node) {
+    if ((node['type'] as String?) == 'taskItem') {
+      final hit = counter == targetIndex;
+      counter++;
+      if (!hit) return node;
+      final attrs = Map<String, dynamic>.from(
+        (node['attrs'] as Map<String, dynamic>?) ?? const {},
+      );
+      final state = (attrs['state'] as String?) ?? 'TODO';
+      attrs['state'] = state == 'DONE' ? 'TODO' : 'DONE';
+      return {...node, 'attrs': attrs};
+    }
+    final content = node['content'];
+    if (content is! List) return node;
+    final next = <dynamic>[];
+    for (final c in content) {
+      next.add(c is Map<String, dynamic> ? walk(c) : c);
+    }
+    return {...node, 'content': next};
+  }
+  return walk(adf);
+}
+
 class AdfMarkdown {
   AdfMarkdown(this._doc);
 
@@ -46,9 +71,28 @@ class AdfMarkdown {
         return _mediaSingle(node);
       case 'mediaGroup':
         return _mediaGroup(node);
+      case 'taskList':
+        return _taskList(node);
       default:
         return _inlines(_children(node));
     }
+  }
+
+  String _taskList(Map<String, dynamic> node) {
+    final lines = <String>[];
+    for (final c in _children(node)) {
+      final line = _taskItem(c as Map<String, dynamic>);
+      if (line.isNotEmpty) lines.add(line);
+    }
+    return lines.join('\n');
+  }
+
+  String _taskItem(Map<String, dynamic> node) {
+    if ((node['type'] as String?) != 'taskItem') return '';
+    final state = (_attrs(node)['state'] as String?) ?? 'TODO';
+    final mark = state == 'DONE' ? 'x' : ' ';
+    final body = _inlines(_children(node));
+    return '- [$mark] $body';
   }
 
   String _mediaSingle(Map<String, dynamic> node) {

@@ -184,6 +184,8 @@ class _TicketsPageState extends State<TicketsPage> {
           onPostComment: (text) =>
               _jira.postComment(ticket, text, credentials),
           onOpenTicket: (t) => _openDetail(credentials, t),
+          onUpdateDescription: (desc) =>
+              _jira.updateDescription(ticket, desc, credentials),
         ),
       ),
     );

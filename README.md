@@ -10,7 +10,7 @@ Named for the Norse watchman of Bifröst, who marks what approaches — and, wit
 
 Jira's web UI is heavy, slow, and screen-greedy. The friction is not its container — it is the editing chrome itself: the busy panels, the modal dialogs, the bloat. Heimdall ships only what the editing chrome was hiding: a list of titles and statuses, refreshed on demand.
 
-Writes that move a ticket along its workflow — status transitions and plain-text comments — are supported, since both are voice and pace, not editing. Structural edits (summary, field changes, assignee, attachments, links) stay in the web UI. The web handles those, and so does any Jira CLI. Heimdall *shows*, and lets you usher a ticket along its workflow.
+Writes that move a ticket along its workflow — status transitions, plain-text comments, and inline task-list ticks — are supported, since each is voice and pace, not editing. Structural edits (summary, field changes, assignee, attachments, links) stay in the web UI. The web handles those, and so does any Jira CLI. Heimdall *shows*, and lets you usher a ticket along its workflow.
 
 ## Requirements
 
@@ -64,7 +64,7 @@ fvm flutter run -d macos     # or: -d windows
 - **Search** — text field beside the tab strip; live-filters visible rows by key, summary, assignee, or status (substring, case-insensitive). In memory only.
 - **Open by key** — the `#` icon in the AppBar pops a small dialog; type a key like `PSG-1234` and press Enter to jump straight to its detail page.
 - **Mode toggle** — Grouped (default) or Flat, in the AppBar; persists across launches.
-- **Detail page** — row click opens it; description ADF is converted to Markdown and rendered with `flutter_markdown_plus`.
+- **Detail page** — row click opens it; description ADF is converted to Markdown and rendered with `flutter_markdown_plus`. Inline task lists (ADF `taskList`) render as GFM checkboxes — tap to flip TODO/DONE; the change PUTs the modified description back to Jira and the local view updates optimistically.
 - **Comments pane** — read existing comments, post new plain-text ones; lives at the right of the detail page on wide windows, below the description on narrow ones. Auto-refreshes every 30 s while the window is focused; pauses when blurred or hidden.
 - **Attachments** — image attachments render as a thumbnail wrap below the description; tap to open full size in a zoomable dialog. Non-image attachments appear as filename chips that open the file URL in the browser. Read-only — uploads, renames, and deletes stay in the web UI.
 - **Sub-tasks & Links** — sub-tasks list below the description; issue links group by their directional label (`blocks`, `is blocked by`, `relates to`, …). Each row carries type icon · key · summary · status; tap opens that ticket's own detail page on top of the navigation stack.
@@ -78,7 +78,7 @@ fvm flutter run -d macos     # or: -d windows
 ## Out of Scope
 
 - Tray residency, menu-bar icon, background polling.
-- Writes beyond status transitions and plain-text comments — summary edits, field edits, assignee changes, attachments, links — stay in the web UI.
+- Writes beyond status transitions, plain-text comments, and task-list ticks — summary edits, field edits, assignee changes, attachments, links — stay in the web UI.
 - Comment editing, deletion, threading, mentions, rich formatting — comments are post-only and plain text.
 - Boards, sprints, admin, full-text search.
 - Default filters shipped with the app — every filter is user-added.

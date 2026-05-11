@@ -26,6 +26,7 @@ class TicketDetailPage extends StatefulWidget {
   final Future<List<JiraComment>> Function() onLoadComments;
   final Future<JiraComment> Function(String) onPostComment;
   final void Function(JiraTicket)? onOpenTicket;
+  final Future<void> Function(Map<String, dynamic>)? onUpdateDescription;
 
   const TicketDetailPage({
     super.key,
@@ -38,6 +39,7 @@ class TicketDetailPage extends StatefulWidget {
     required this.onLoadComments,
     required this.onPostComment,
     this.onOpenTicket,
+    this.onUpdateDescription,
   });
 
   @override
@@ -58,6 +60,8 @@ class _TicketDetailPageState extends State<TicketDetailPage>
   late JiraTicket _ticket;
   final TextEditingController _input = TextEditingController();
   Timer? _poll;
+  int _checkboxIndex = 0;
+  bool _savingTask = false;
 
   @override
   void initState() {
@@ -876,14 +880,73 @@ class _TicketDetailPageState extends State<TicketDetailPage>
         ),
       );
     }
+    _checkboxIndex = 0;
     return MarkdownBody(
       data: markdown,
       selectable: true,
       imageBuilder: _descriptionImage,
+      checkboxBuilder: _checkboxFor,
       onTapLink: (_, href, _) {
         if (href == null || href.isEmpty) return;
         launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
       },
+    );
+  }
+
+  Widget _checkboxFor(bool checked) {
+    final index = _checkboxIndex++;
+    final tappable = widget.onUpdateDescription != null;
+    return InkWell(
+      onTap: tappable ? () => _onToggleTask(index) : null,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Icon(
+          checked ? Icons.check_box : Icons.check_box_outline_blank,
+          size: 18,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onToggleTask(int index) async {
+    final issue = _issue;
+    final description = issue?.description;
+    final onUpdate = widget.onUpdateDescription;
+    if (issue == null || description == null || onUpdate == null) return;
+    if (_savingTask) return;
+    final next = flipTaskItem(description, index);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _savingTask = true;
+      _issue = _withDescription(issue, next);
+    });
+    try {
+      await onUpdate(next);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _issue = issue;
+      });
+      messenger.showSnackBar(SnackBar(content: Text('Update failed: $e')));
+    } finally {
+      if (mounted) setState(() => _savingTask = false);
+    }
+  }
+
+  JiraIssue _withDescription(
+    JiraIssue issue,
+    Map<String, dynamic> description,
+  ) {
+    return JiraIssue(
+      ticket: issue.ticket,
+      reporter: issue.reporter,
+      created: issue.created,
+      updated: issue.updated,
+      description: description,
+      attachments: issue.attachments,
+      inlineImageUrls: issue.inlineImageUrls,
+      subtasks: issue.subtasks,
+      links: issue.links,
     );
   }
 
