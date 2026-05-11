@@ -8,6 +8,7 @@ import '../data/adf.dart';
 import '../data/jira_attachment.dart';
 import '../data/jira_comment.dart';
 import '../data/jira_issue.dart';
+import '../data/jira_issue_link.dart';
 import '../data/jira_ticket.dart';
 import '../data/jira_transition.dart';
 import 'ticket_chrome.dart';
@@ -24,6 +25,7 @@ class TicketDetailPage extends StatefulWidget {
   final Future<void> Function(JiraTransition) onApplyTransition;
   final Future<List<JiraComment>> Function() onLoadComments;
   final Future<JiraComment> Function(String) onPostComment;
+  final void Function(JiraTicket)? onOpenTicket;
 
   const TicketDetailPage({
     super.key,
@@ -35,6 +37,7 @@ class TicketDetailPage extends StatefulWidget {
     required this.onApplyTransition,
     required this.onLoadComments,
     required this.onPostComment,
+    this.onOpenTicket,
   });
 
   @override
@@ -267,6 +270,8 @@ class _TicketDetailPageState extends State<TicketDetailPage>
 
   Widget _detailColumn() {
     final attachments = _issue?.attachments ?? const <JiraAttachment>[];
+    final subtasks = _issue?.subtasks ?? const <JiraTicket>[];
+    final links = _issue?.links ?? const <JiraIssueLink>[];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -286,6 +291,20 @@ class _TicketDetailPageState extends State<TicketDetailPage>
             child: Divider(height: 1),
           ),
           _attachments(context, attachments),
+        ],
+        if (subtasks.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(height: 1),
+          ),
+          _subtasksSection(context, subtasks),
+        ],
+        if (links.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(height: 1),
+          ),
+          _linksSection(context, links),
         ],
       ],
     );
@@ -734,6 +753,115 @@ class _TicketDetailPageState extends State<TicketDetailPage>
   Future<void> _openContentInBrowser(JiraAttachment a) async {
     if (a.contentUrl.isEmpty) return;
     await launchUrl(Uri.parse(a.contentUrl), mode: LaunchMode.externalApplication);
+  }
+
+  Widget _subtasksSection(BuildContext context, List<JiraTicket> subtasks) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sub-tasks (${subtasks.length})',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        for (final t in subtasks) _ticketRow(context, t),
+      ],
+    );
+  }
+
+  Widget _linksSection(BuildContext context, List<JiraIssueLink> links) {
+    final byLabel = <String, List<JiraIssueLink>>{};
+    for (final l in links) {
+      byLabel.putIfAbsent(l.label, () => []).add(l);
+    }
+    final labels = byLabel.keys.toList()..sort();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Links (${links.length})',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        for (final label in labels) _linkGroup(context, label, byLabel[label]!),
+      ],
+    );
+  }
+
+  Widget _linkGroup(
+    BuildContext context,
+    String label,
+    List<JiraIssueLink> links,
+  ) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.isEmpty ? '—' : label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.outline,
+            ),
+          ),
+          const SizedBox(height: 4),
+          for (final l in links) _ticketRow(context, l.ticket),
+        ],
+      ),
+    );
+  }
+
+  Widget _ticketRow(BuildContext context, JiraTicket t) {
+    final theme = Theme.of(context);
+    final tappable = widget.onOpenTicket != null;
+    return InkWell(
+      onTap: tappable ? () => widget.onOpenTicket!(t) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Tooltip(
+              message: t.issueType,
+              child: Icon(t.typeIcon, size: 18),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 100,
+              child: Text(
+                t.key,
+                style: theme.textTheme.bodyMedium,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                t.summary,
+                style: theme.textTheme.bodyMedium,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
+            ),
+            const SizedBox(width: 8),
+            _statusChip(theme, t.statusName),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statusChip(ThemeData theme, String status) {
+    final label = status.isEmpty ? '—' : status;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(label, style: theme.textTheme.bodySmall),
+    );
   }
 
   Widget _description(BuildContext context) {

@@ -1,4 +1,5 @@
 import 'jira_attachment.dart';
+import 'jira_issue_link.dart';
 import 'jira_ticket.dart';
 
 class JiraIssue {
@@ -9,6 +10,8 @@ class JiraIssue {
   final Map<String, dynamic>? description;
   final List<JiraAttachment> attachments;
   final List<String> inlineImageUrls;
+  final List<JiraTicket> subtasks;
+  final List<JiraIssueLink> links;
 
   const JiraIssue({
     required this.ticket,
@@ -18,5 +21,7 @@ class JiraIssue {
     this.description,
     this.attachments = const [],
     this.inlineImageUrls = const [],
+    this.subtasks = const [],
+    this.links = const [],
   });
 }

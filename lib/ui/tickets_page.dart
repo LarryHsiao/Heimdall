@@ -183,6 +183,7 @@ class _TicketsPageState extends State<TicketsPage> {
           onLoadComments: () => _jira.comments(ticket, credentials),
           onPostComment: (text) =>
               _jira.postComment(ticket, text, credentials),
+          onOpenTicket: (t) => _openDetail(credentials, t),
         ),
       ),
     );

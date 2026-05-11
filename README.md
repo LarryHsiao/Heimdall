@@ -67,6 +67,7 @@ fvm flutter run -d macos     # or: -d windows
 - **Detail page** — row click opens it; description ADF is converted to Markdown and rendered with `flutter_markdown_plus`.
 - **Comments pane** — read existing comments, post new plain-text ones; lives at the right of the detail page on wide windows, below the description on narrow ones. Auto-refreshes every 30 s while the window is focused; pauses when blurred or hidden.
 - **Attachments** — image attachments render as a thumbnail wrap below the description; tap to open full size in a zoomable dialog. Non-image attachments appear as filename chips that open the file URL in the browser. Read-only — uploads, renames, and deletes stay in the web UI.
+- **Sub-tasks & Links** — sub-tasks list below the description; issue links group by their directional label (`blocks`, `is blocked by`, `relates to`, …). Each row carries type icon · key · summary · status; tap opens that ticket's own detail page on top of the navigation stack.
 
 ## Storage
 
@@ -102,9 +103,10 @@ lib/
     jira_credentials.dart   model
     jira_filter.dart        model + JQL coercion
     jira_ticket.dart        model
-    jira_issue.dart         ticket + description + reporter + dates + attachments
+    jira_issue.dart         ticket + description + reporter + dates + attachments + subtasks + links
     jira_comment.dart       model
     jira_attachment.dart    model (image + file metadata)
+    jira_issue_link.dart    model (link type + direction + related ticket)
     jira_transition.dart    model
     view_settings.dart      view mode, sort, column widths
     vault.dart              credentials in secure storage

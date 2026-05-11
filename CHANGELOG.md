@@ -6,10 +6,30 @@ All notable changes to Heimdall are recorded here. The format follows [Keep a Ch
 
 ### Added
 
+- In-app ticket detail page — header, metadata bar, description rendered as Markdown, people, and a comments pane (right on wide windows, below on narrow ones).
+- Comments pane auto-refreshes every 30 s while the window is focused; pauses when blurred or hidden.
+- Attachment gallery on the detail page — image thumbnails wrap below the description; tap opens full size in a zoomable dialog. Non-image files appear as filename chips that open in the browser.
+- Inline image rendering inside descriptions — Jira's rendered HTML is paired positionally with ADF media nodes; loads carry the same Basic auth header the gateway uses.
+- Search field beside the tab strip — live-filters visible rows by key, summary, assignee, or status (substring, case-insensitive, in memory).
+- "Open by key" action in the AppBar — type a ticket key like `PSG-1234` and press Enter to jump straight to its detail page.
+- Sub-tasks and Links sections on the detail page — sub-tasks list flat; links group by their directional label (`blocks`, `is blocked by`, `relates to`). Each row carries type icon, key, summary, and status; tap opens that ticket's detail page on top of the navigation stack.
+- Inno Setup script for the Windows installer.
+- Developer ID provisioning profile embedded in macOS builds.
+
+### Changed
+
+- macOS install instructions lead with the DMG; the `xattr` quarantine path was corrected.
+- README documents GitHub Issues as the project's tracker.
+
+## [1.0.0] — 2026-05-06
+
+### Added
+
 - Initial Flutter desktop scaffold for macOS and Windows.
 - Credentials form (base URL, email, API token) backed by `flutter_secure_storage`.
 - Filter list management — add, edit, delete; filter ID or raw JQL.
 - Ticket list view: per-filter sections with key, summary, and status chip.
+- Status transitions on the table's Status cell — pops a sorted transition menu in place.
 - Click-through to the default browser via `url_launcher`.
 - Manual refresh and pull-to-refresh.
 - Empty states for missing credentials and empty filter list.

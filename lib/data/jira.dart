@@ -7,6 +7,7 @@ import 'jira_comment.dart';
 import 'jira_credentials.dart';
 import 'jira_filter.dart';
 import 'jira_issue.dart';
+import 'jira_issue_link.dart';
 import 'jira_ticket.dart';
 import 'jira_transition.dart';
 
@@ -43,33 +44,10 @@ class Jira {
     if (issues is! List) {
       return const [];
     }
-    return issues.map(_ticketOf).toList();
-  }
-
-  JiraTicket _ticketOf(dynamic issue) {
-    final fields = (issue['fields'] as Map<String, dynamic>?) ?? const {};
-    final status = (fields['status'] as Map<String, dynamic>?) ?? const {};
-    final category =
-        (status['statusCategory'] as Map<String, dynamic>?) ?? const {};
-    final type = (fields['issuetype'] as Map<String, dynamic>?) ?? const {};
-    final parent = (fields['parent'] as Map<String, dynamic>?) ?? const {};
-    final parentFields =
-        (parent['fields'] as Map<String, dynamic>?) ?? const {};
-    final priority =
-        (fields['priority'] as Map<String, dynamic>?) ?? const {};
-    final assignee =
-        (fields['assignee'] as Map<String, dynamic>?) ?? const {};
-    return JiraTicket(
-      key: (issue['key'] as String?) ?? '',
-      summary: (fields['summary'] as String?) ?? '',
-      statusName: (status['name'] as String?) ?? '',
-      statusCategory: (category['name'] as String?) ?? '',
-      issueType: (type['name'] as String?) ?? '',
-      priority: (priority['name'] as String?) ?? '',
-      assignee: (assignee['displayName'] as String?) ?? '',
-      parentKey: (parent['key'] as String?) ?? '',
-      parentSummary: (parentFields['summary'] as String?) ?? '',
-    );
+    return [
+      for (final issue in issues)
+        if (issue is Map<String, dynamic>) ticketFromIssue(issue),
+    ];
   }
 
   Future<JiraIssue> issue(
@@ -84,7 +62,8 @@ class Jira {
       '$base/rest/api/3/issue/${ticket.key}',
       queryParameters: {
         'fields': 'summary,status,issuetype,parent,priority,assignee,'
-            'reporter,description,created,updated,attachment',
+            'reporter,description,created,updated,attachment,'
+            'subtasks,issuelinks',
         'expand': 'renderedFields',
       },
       options: Options(headers: {'Authorization': 'Basic $auth'}),
@@ -108,11 +87,13 @@ class Jira {
     final reporter =
         (fields['reporter'] as Map<String, dynamic>?) ?? const {};
     final attachments = (fields['attachment'] as List?) ?? const [];
+    final subtasks = (fields['subtasks'] as List?) ?? const [];
+    final links = (fields['issuelinks'] as List?) ?? const [];
     final rendered =
         (body['renderedFields'] as Map<String, dynamic>?) ?? const {};
     final renderedDescription = (rendered['description'] as String?) ?? '';
     return JiraIssue(
-      ticket: _ticketOf(body),
+      ticket: ticketFromIssue(body),
       reporter: (reporter['displayName'] as String?) ?? '',
       created: (fields['created'] as String?) ?? '',
       updated: (fields['updated'] as String?) ?? '',
@@ -122,6 +103,15 @@ class Jira {
           if (a is Map<String, dynamic>) JiraAttachment.fromJson(a),
       ],
       inlineImageUrls: inlineImagesFromHtml(renderedDescription),
+      subtasks: [
+        for (final s in subtasks)
+          if (s is Map<String, dynamic>) ticketFromIssue(s),
+      ],
+      links: links
+          .whereType<Map<String, dynamic>>()
+          .map(parseIssueLink)
+          .whereType<JiraIssueLink>()
+          .toList(),
     );
   }
 
@@ -236,6 +226,50 @@ class Jira {
       options: Options(headers: {'Authorization': 'Basic $auth'}),
     );
   }
+}
+
+JiraTicket ticketFromIssue(Map<String, dynamic> issue) {
+  final fields = (issue['fields'] as Map<String, dynamic>?) ?? const {};
+  final status = (fields['status'] as Map<String, dynamic>?) ?? const {};
+  final category =
+      (status['statusCategory'] as Map<String, dynamic>?) ?? const {};
+  final type = (fields['issuetype'] as Map<String, dynamic>?) ?? const {};
+  final parent = (fields['parent'] as Map<String, dynamic>?) ?? const {};
+  final parentFields =
+      (parent['fields'] as Map<String, dynamic>?) ?? const {};
+  final priority =
+      (fields['priority'] as Map<String, dynamic>?) ?? const {};
+  final assignee =
+      (fields['assignee'] as Map<String, dynamic>?) ?? const {};
+  return JiraTicket(
+    key: (issue['key'] as String?) ?? '',
+    summary: (fields['summary'] as String?) ?? '',
+    statusName: (status['name'] as String?) ?? '',
+    statusCategory: (category['name'] as String?) ?? '',
+    issueType: (type['name'] as String?) ?? '',
+    priority: (priority['name'] as String?) ?? '',
+    assignee: (assignee['displayName'] as String?) ?? '',
+    parentKey: (parent['key'] as String?) ?? '',
+    parentSummary: (parentFields['summary'] as String?) ?? '',
+  );
+}
+
+JiraIssueLink? parseIssueLink(Map<String, dynamic> json) {
+  final type = (json['type'] as Map<String, dynamic>?) ?? const {};
+  final outward = json['outwardIssue'] as Map<String, dynamic>?;
+  final inward = json['inwardIssue'] as Map<String, dynamic>?;
+  final issue = outward ?? inward;
+  if (issue == null) return null;
+  final isOutward = outward != null;
+  final label = isOutward
+      ? (type['outward'] as String?) ?? ''
+      : (type['inward'] as String?) ?? '';
+  return JiraIssueLink(
+    typeName: (type['name'] as String?) ?? '',
+    label: label,
+    isOutward: isOutward,
+    ticket: ticketFromIssue(issue),
+  );
 }
 
 final RegExp _imgSrc = RegExp(
