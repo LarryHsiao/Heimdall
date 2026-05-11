@@ -4,6 +4,8 @@ All notable changes to Heimdall are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-05-11
+
 ### Added
 
 - Inline task lists in the description — ADF `taskList`/`taskItem` nodes render as GFM checkboxes with their TODO/DONE state preserved.
