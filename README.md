@@ -10,7 +10,7 @@ Named for the Norse watchman of Bifröst, who marks what approaches — and, wit
 
 Jira's web UI is heavy, slow, and screen-greedy. The friction is not its container — it is the editing chrome itself: the busy panels, the modal dialogs, the bloat. Heimdall ships only what the editing chrome was hiding: a list of titles and statuses, refreshed on demand.
 
-Writes that move a ticket along its workflow — status transitions, plain-text comments, and inline task-list ticks — are supported, since each is voice and pace, not editing. Structural edits (summary, field changes, assignee, attachments, links) stay in the web UI. The web handles those, and so does any Jira CLI. Heimdall *shows*, and lets you usher a ticket along its workflow.
+Writes that move a ticket along its workflow — status transitions, assignee changes, plain-text comments, and inline task-list ticks — are supported, since each is voice and pace, not editing: *who* the ticket sits with belongs to the same gesture as *where* it stands. Structural edits (summary, field changes, attachments, links) stay in the web UI. The web handles those, and so does any Jira CLI. Heimdall *shows*, and lets you usher a ticket along its workflow.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ fvm flutter run -d macos     # or: -d windows
    - A **filter ID** (e.g. `10363`) — Heimdall wraps it as `filter = 10363`
    - A raw **JQL** expression (e.g. `assignee = currentUser() AND resolution = Unresolved`)
 4. Each filter becomes its own tab across the top. Tickets render in a sortable, resizable table (Type · Key · Summary · Pri · Assignee · Status). Sub-tasks indent under their parent in **Grouped** mode; **Flat** mode treats every row as its own line — toggle in the AppBar.
-5. Click most cells to open the ticket in the in-app **detail page** — header, status pill, type and priority chips, assignee/reporter/dates, and the description rendered as Markdown. A **Comments** pane to the right (or below, on a narrow window) lists existing comments and accepts new plain-text ones. The detail page bears its own *Open in browser* and *Refresh* actions, and the status pill there pops the same transition menu as the table. Click the table's **Status** cell directly to skip the detail page and pick a transition in place — Heimdall calls Jira's transition endpoint and refreshes the section.
+5. Click most cells to open the ticket in the in-app **detail page** — header, status pill, type and priority chips, assignee/reporter/dates, and the description rendered as Markdown. A **Comments** pane to the right (or below, on a narrow window) lists existing comments and accepts new plain-text ones. The detail page bears its own *Open in browser* and *Refresh* actions, and the status pill there pops the same transition menu as the table. Click the table's **Status** cell directly to skip the detail page and pick a transition in place — Heimdall calls Jira's transition endpoint and refreshes the section. The **Assignee** cell behaves the same: tap it (or the assignee line on the detail page) to pop a picker of the project's assignable users, with an *(Unassigned)* row at the top; on tap, Heimdall calls Jira's assignee endpoint and refreshes the section.
 
 ## View
 
@@ -68,6 +68,7 @@ fvm flutter run -d macos     # or: -d windows
 - **Comments pane** — read existing comments, post new plain-text ones; lives at the right of the detail page on wide windows, below the description on narrow ones. Auto-refreshes every 30 s while the window is focused; pauses when blurred or hidden.
 - **Attachments** — image attachments render as a thumbnail wrap below the description; tap to open full size in a zoomable dialog. Non-image attachments appear as filename chips that open the file URL in the browser. Read-only — uploads, renames, and deletes stay in the web UI.
 - **Sub-tasks & Links** — sub-tasks list below the description; issue links group by their directional label (`blocks`, `is blocked by`, `relates to`, …). Each row carries type icon · key · summary · status; tap opens that ticket's own detail page on top of the navigation stack.
+- **Assignee picker** — tap the **Assignee** cell in the table, or the assignee line on the detail page, to pop a dialog of the project's assignable users with a search box and an *(Unassigned)* row at the top. Tapping a row commits the change and refreshes the section optimistically; no Save button. Backed by Jira's `/user/assignable/search` and `/issue/{key}/assignee` endpoints.
 
 ## Storage
 
@@ -78,7 +79,7 @@ fvm flutter run -d macos     # or: -d windows
 ## Out of Scope
 
 - Tray residency, menu-bar icon, background polling.
-- Writes beyond status transitions, plain-text comments, and task-list ticks — summary edits, field edits, assignee changes, attachments, links — stay in the web UI.
+- Writes beyond status transitions, assignee changes, plain-text comments, and task-list ticks — summary edits, field edits, attachments, links — stay in the web UI.
 - Comment editing, deletion, threading, mentions, rich formatting — comments are post-only and plain text.
 - Boards, sprints, admin, full-text search.
 - Default filters shipped with the app — every filter is user-added.
@@ -108,16 +109,18 @@ lib/
     jira_attachment.dart    model (image + file metadata)
     jira_issue_link.dart    model (link type + direction + related ticket)
     jira_transition.dart    model
+    jira_user.dart          model (assignable user — accountId + displayName)
     view_settings.dart      view mode, sort, column widths
     vault.dart              credentials in secure storage
     filters.dart            filters in shared_preferences
     preferences.dart        view settings in shared_preferences
-    jira.dart               REST gateway (search/jql + issue + comments + transitions)
+    jira.dart               REST gateway (search/jql + issue + comments + transitions + assignee)
     adf.dart                Atlassian Document Format → Markdown
   ui/
     tickets_page.dart       main view
     ticket_detail_page.dart detail surface for a single ticket
     ticket_chrome.dart      type / priority icon mappings
+    assignee_picker.dart    dialog: search assignable users, tap to pick
     settings_page.dart      credentials form
     filters_page.dart       filter list management
     filter_form_page.dart   add / edit a filter

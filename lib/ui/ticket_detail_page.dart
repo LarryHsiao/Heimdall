@@ -11,6 +11,8 @@ import '../data/jira_issue.dart';
 import '../data/jira_issue_link.dart';
 import '../data/jira_ticket.dart';
 import '../data/jira_transition.dart';
+import '../data/jira_user.dart';
+import 'assignee_picker.dart';
 import 'ticket_chrome.dart';
 
 const double _wideThreshold = 800;
@@ -27,6 +29,8 @@ class TicketDetailPage extends StatefulWidget {
   final Future<JiraComment> Function(String) onPostComment;
   final void Function(JiraTicket)? onOpenTicket;
   final Future<void> Function(Map<String, dynamic>)? onUpdateDescription;
+  final Future<List<JiraUser>> Function(String query)? onLoadAssignableUsers;
+  final Future<void> Function(JiraUser?)? onChangeAssignee;
 
   const TicketDetailPage({
     super.key,
@@ -40,6 +44,8 @@ class TicketDetailPage extends StatefulWidget {
     required this.onPostComment,
     this.onOpenTicket,
     this.onUpdateDescription,
+    this.onLoadAssignableUsers,
+    this.onChangeAssignee,
   });
 
   @override
@@ -62,6 +68,7 @@ class _TicketDetailPageState extends State<TicketDetailPage>
   Timer? _poll;
   int _checkboxIndex = 0;
   bool _savingTask = false;
+  bool _savingAssignee = false;
 
   @override
   void initState() {
@@ -597,13 +604,12 @@ class _TicketDetailPageState extends State<TicketDetailPage>
     final reporter = issue?.reporter ?? '';
     final created = _date(issue?.created);
     final updated = _date(issue?.updated);
-    final assignee = _ticket.assignee.isEmpty ? '—' : _ticket.assignee;
     return DefaultTextStyle.merge(
       style: theme.textTheme.bodyMedium ?? const TextStyle(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _kv(theme, 'Assignee', assignee),
+          _assigneeRow(theme),
           if (reporter.isNotEmpty) _kv(theme, 'Reporter', reporter),
           if (created.isNotEmpty || updated.isNotEmpty)
             _kv(
@@ -614,6 +620,55 @@ class _TicketDetailPageState extends State<TicketDetailPage>
                 if (updated.isNotEmpty) 'Updated $updated',
               ].join(' · '),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _assigneeRow(ThemeData theme) {
+    final label = _ticket.assignee.isEmpty ? '—' : _ticket.assignee;
+    final tappable = widget.onLoadAssignableUsers != null &&
+        widget.onChangeAssignee != null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              'Assignee',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+          ),
+          Expanded(
+            child: tappable
+                ? InkWell(
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: _savingAssignee ? null : _onAssigneeTap,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(child: Text(label)),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_drop_down,
+                            size: 18,
+                            color: theme.colorScheme.outline,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : Text(label),
+          ),
         ],
       ),
     );
@@ -988,6 +1043,51 @@ class _TicketDetailPageState extends State<TicketDetailPage>
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _onAssigneeTap() async {
+    final onLoad = widget.onLoadAssignableUsers;
+    final onChange = widget.onChangeAssignee;
+    if (onLoad == null || onChange == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final choice = await showAssigneePicker(
+      context,
+      ticketKey: _ticket.key,
+      currentAssignee: _ticket.assignee,
+      onLoad: onLoad,
+    );
+    if (choice == null || !mounted) return;
+    final previous = _ticket.assignee;
+    final nextName = choice.user?.displayName ?? '';
+    setState(() {
+      _savingAssignee = true;
+      _ticket = _ticketWithAssignee(_ticket, nextName);
+    });
+    try {
+      await onChange(choice.user);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _ticket = _ticketWithAssignee(_ticket, previous));
+      messenger.showSnackBar(
+        SnackBar(content: Text('Assignee change failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingAssignee = false);
+    }
+  }
+
+  JiraTicket _ticketWithAssignee(JiraTicket t, String assignee) {
+    return JiraTicket(
+      key: t.key,
+      summary: t.summary,
+      statusName: t.statusName,
+      statusCategory: t.statusCategory,
+      issueType: t.issueType,
+      priority: t.priority,
+      assignee: assignee,
+      parentKey: t.parentKey,
+      parentSummary: t.parentSummary,
     );
   }
 

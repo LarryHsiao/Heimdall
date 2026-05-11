@@ -10,6 +10,7 @@ import 'jira_issue.dart';
 import 'jira_issue_link.dart';
 import 'jira_ticket.dart';
 import 'jira_transition.dart';
+import 'jira_user.dart';
 
 class Jira {
   final Dio _dio;
@@ -223,6 +224,47 @@ class Jira {
       data: {
         'fields': {'description': description},
       },
+      options: Options(headers: {'Authorization': 'Basic $auth'}),
+    );
+  }
+
+  Future<List<JiraUser>> assignableUsers(
+    JiraTicket ticket,
+    JiraCredentials credentials, {
+    String query = '',
+  }) async {
+    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
+    final response = await _dio.get<List<dynamic>>(
+      '$base/rest/api/3/user/assignable/search',
+      queryParameters: {
+        'issueKey': ticket.key,
+        if (query.isNotEmpty) 'query': query,
+        'maxResults': 50,
+      },
+      options: Options(headers: {'Authorization': 'Basic $auth'}),
+    );
+    final list = response.data ?? const [];
+    return [
+      for (final u in list)
+        if (u is Map<String, dynamic>) JiraUser.fromJson(u),
+    ];
+  }
+
+  Future<void> changeAssignee(
+    JiraTicket ticket,
+    String? accountId,
+    JiraCredentials credentials,
+  ) async {
+    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
+    await _dio.put<dynamic>(
+      '$base/rest/api/3/issue/${ticket.key}/assignee',
+      data: {'accountId': accountId},
       options: Options(headers: {'Authorization': 'Basic $auth'}),
     );
   }

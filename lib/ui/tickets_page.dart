@@ -8,9 +8,11 @@ import '../data/jira_credentials.dart';
 import '../data/jira_filter.dart';
 import '../data/jira_ticket.dart';
 import '../data/jira_transition.dart';
+import '../data/jira_user.dart';
 import '../data/preferences.dart';
 import '../data/vault.dart';
 import '../data/view_settings.dart';
+import 'assignee_picker.dart';
 import 'filter_form_page.dart';
 import 'filters_page.dart';
 import 'settings_page.dart';
@@ -186,6 +188,8 @@ class _TicketsPageState extends State<TicketsPage> {
           onOpenTicket: (t) => _openDetail(credentials, t),
           onUpdateDescription: (desc) =>
               _jira.updateDescription(ticket, desc, credentials),
+          onLoadAssignableUsers: (q) => _loadAssignableUsers(ticket, q),
+          onChangeAssignee: (user) => _applyAssignee(ticket, user),
         ),
       ),
     );
@@ -202,6 +206,51 @@ class _TicketsPageState extends State<TicketsPage> {
     if (cred == null) return;
     await _jira.transition(ticket, tr.id, cred);
     _patchTicketStatus(ticket.key, tr.toStatus, tr.toStatusCategory);
+  }
+
+  Future<List<JiraUser>> _loadAssignableUsers(
+    JiraTicket ticket,
+    String query,
+  ) async {
+    final cred = await _vault.read();
+    if (cred == null) return const [];
+    return _jira.assignableUsers(ticket, cred, query: query);
+  }
+
+  Future<void> _applyAssignee(JiraTicket ticket, JiraUser? user) async {
+    final cred = await _vault.read();
+    if (cred == null) return;
+    await _jira.changeAssignee(ticket, user?.accountId, cred);
+    _patchTicketAssignee(ticket.key, user?.displayName ?? '');
+  }
+
+  void _patchTicketAssignee(String key, String displayName) {
+    final data = _data;
+    if (data == null) return;
+    final sections = data.sections.map((s) {
+      final tickets = s.tickets.map((t) {
+        if (t.key != key) return t;
+        return JiraTicket(
+          key: t.key,
+          summary: t.summary,
+          statusName: t.statusName,
+          statusCategory: t.statusCategory,
+          issueType: t.issueType,
+          priority: t.priority,
+          assignee: displayName,
+          parentKey: t.parentKey,
+          parentSummary: t.parentSummary,
+        );
+      }).toList();
+      return FilterSection(
+        filter: s.filter,
+        tickets: tickets,
+        error: s.error,
+      );
+    }).toList();
+    setState(() {
+      _data = _PageState(credentials: data.credentials, sections: sections);
+    });
   }
 
   void _toggleMode() {
@@ -335,6 +384,8 @@ class _TicketsPageState extends State<TicketsPage> {
                             _openDetail(data.credentials!, t),
                         onLoadTransitions: _loadTransitions,
                         onApplyTransition: _applyTransition,
+                        onLoadAssignableUsers: _loadAssignableUsers,
+                        onApplyAssignee: _applyAssignee,
                       ),
                     ),
                   )
@@ -565,6 +616,9 @@ class _SectionView extends StatefulWidget {
   final ValueChanged<JiraTicket> onTicketTap;
   final Future<List<JiraTransition>> Function(JiraTicket) onLoadTransitions;
   final Future<void> Function(JiraTicket, JiraTransition) onApplyTransition;
+  final Future<List<JiraUser>> Function(JiraTicket, String query)
+      onLoadAssignableUsers;
+  final Future<void> Function(JiraTicket, JiraUser?) onApplyAssignee;
 
   const _SectionView({
     required this.section,
@@ -574,6 +628,8 @@ class _SectionView extends StatefulWidget {
     required this.onTicketTap,
     required this.onLoadTransitions,
     required this.onApplyTransition,
+    required this.onLoadAssignableUsers,
+    required this.onApplyAssignee,
   });
 
   @override
@@ -867,7 +923,11 @@ class _SectionViewState extends State<_SectionView> {
         _bodyCell(t, Text(t.key)),
         _bodyCell(t, _summaryCell(t, row.parentCaption, theme)),
         _bodyCell(t, _priorityCell(t)),
-        _bodyCell(t, Text(t.assignee.isEmpty ? '—' : t.assignee)),
+        _bodyCell(
+          t,
+          Text(t.assignee.isEmpty ? '—' : t.assignee),
+          onTapWithContext: (ctx) => _onAssigneeTap(ctx, t),
+        ),
         _bodyCell(
           t,
           Text(t.statusName, overflow: TextOverflow.ellipsis),
@@ -903,6 +963,24 @@ class _SectionViewState extends State<_SectionView> {
         ),
       ),
     );
+  }
+
+  Future<void> _onAssigneeTap(BuildContext context, JiraTicket t) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final choice = await showAssigneePicker(
+      context,
+      ticketKey: t.key,
+      currentAssignee: t.assignee,
+      onLoad: (q) => widget.onLoadAssignableUsers(t, q),
+    );
+    if (choice == null || !context.mounted) return;
+    try {
+      await widget.onApplyAssignee(t, choice.user);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Assignee change failed: $e')),
+      );
+    }
   }
 
   Future<void> _onStatusTap(BuildContext context, JiraTicket t) async {
