@@ -4,6 +4,8 @@ All notable changes to Heimdall are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-05-11
+
 ### Added
 
 - In-app ticket detail page — header, metadata bar, description rendered as Markdown, people, and a comments pane (right on wide windows, below on narrow ones).
