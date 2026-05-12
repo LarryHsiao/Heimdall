@@ -14,6 +14,7 @@ import '../data/jira_transition.dart';
 import '../data/jira_user.dart';
 import 'assignee_picker.dart';
 import 'ticket_chrome.dart';
+import 'tickets_page.dart';
 
 const double _wideThreshold = 800;
 const Duration _pollInterval = Duration(seconds: 30);
@@ -904,22 +905,10 @@ class _TicketDetailPageState extends State<TicketDetailPage>
               ),
             ),
             const SizedBox(width: 8),
-            _statusChip(theme, t.statusName),
+            StatusChip(status: t.statusName),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _statusChip(ThemeData theme, String status) {
-    final label = status.isEmpty ? '—' : status;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(label, style: theme.textTheme.bodySmall),
     );
   }
 
