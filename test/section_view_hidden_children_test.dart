@@ -146,7 +146,8 @@ void main() {
         );
 
         testWidgets(
-          'menu lists only hidden sub-tasks and reports the chosen ticket',
+          'tapping the indicator inlines the hidden sub-tasks dimmed; '
+          'tapping a hidden row routes; tapping again collapses',
           (tester) async {
             final parent = _ticket(key: 'HEI-1');
             final visibleChild =
@@ -177,27 +178,61 @@ void main() {
               mode: mode,
               onTicketTap: (t) => tapped = t,
             );
+
+            const collapsedHidden = 0;
+            const collapsedIcon = 1;
+            expect(find.text('HEI-3'), findsExactly(collapsedHidden));
+            expect(find.text('HEI-4'), findsExactly(collapsedHidden));
+            expect(
+              find.byIcon(Icons.unfold_more),
+              findsExactly(collapsedIcon),
+            );
+
             await tester.tap(_indicatorFor('HEI-1'));
             await tester.pumpAndSettle();
 
-            Finder inPopup(String text) => find.descendant(
-                  of: find.byType(PopupMenuItem<JiraTicket>),
-                  matching: find.text(text),
-                );
+            const expandedHiddenRow = 1;
+            expect(find.text('HEI-3'), findsExactly(expandedHiddenRow));
+            expect(find.text('Hidden A'), findsExactly(expandedHiddenRow));
+            expect(find.text('Aragorn'), findsExactly(expandedHiddenRow));
+            expect(find.text('HEI-4'), findsExactly(expandedHiddenRow));
+            expect(find.text('Hidden B'), findsExactly(expandedHiddenRow));
+            expect(
+              find.byIcon(Icons.unfold_less),
+              findsExactly(collapsedIcon),
+            );
 
-            expect(inPopup('HEI-3'), findsOneWidget);
-            expect(inPopup('Hidden A'), findsOneWidget);
-            expect(inPopup('Aragorn'), findsOneWidget);
-            expect(inPopup('HEI-4'), findsOneWidget);
-            expect(inPopup('Hidden B'), findsOneWidget);
-            expect(inPopup('HEI-2'), findsNothing,
-                reason: 'visible child must not appear in popup');
+            final dimmedHidden = find.ancestor(
+              of: find.text('HEI-3'),
+              matching: find.byWidgetPredicate(
+                (w) => w is Opacity && w.opacity == 0.55,
+              ),
+            );
+            expect(dimmedHidden, findsExactly(expandedHiddenRow));
 
-            await tester.tap(inPopup('Hidden A'));
+            final dimmedVisible = find.ancestor(
+              of: find.text('HEI-2'),
+              matching: find.byWidgetPredicate(
+                (w) => w is Opacity && w.opacity == 0.55,
+              ),
+            );
+            expect(dimmedVisible, findsExactly(collapsedHidden));
+
+            await tester.tap(find.text('HEI-3'));
             await tester.pumpAndSettle();
 
-            final JiraTicket expected = hiddenA;
-            expect(tapped, expected);
+            final JiraTicket expectedTapped = hiddenA;
+            expect(tapped, expectedTapped);
+
+            await tester.tap(_indicatorFor('HEI-1'));
+            await tester.pumpAndSettle();
+
+            expect(find.text('HEI-3'), findsExactly(collapsedHidden));
+            expect(find.text('HEI-4'), findsExactly(collapsedHidden));
+            expect(
+              find.byIcon(Icons.unfold_more),
+              findsExactly(collapsedIcon),
+            );
           },
         );
       });

@@ -16,7 +16,6 @@ import 'assignee_picker.dart';
 import 'filter_form_page.dart';
 import 'filters_page.dart';
 import 'settings_page.dart';
-import 'status_chip.dart';
 import 'ticket_chrome.dart';
 import 'ticket_detail_page.dart';
 
@@ -582,6 +581,7 @@ class _Row {
   final bool parentCaption;
   final bool parentInList;
   final List<JiraTicket> hiddenChildren;
+  final bool filterElided;
 
   const _Row({
     required this.ticket,
@@ -589,6 +589,7 @@ class _Row {
     required this.parentCaption,
     required this.parentInList,
     this.hiddenChildren = const [],
+    this.filterElided = false,
   });
 }
 
@@ -649,6 +650,7 @@ class SectionView extends StatefulWidget {
 
 class SectionViewState extends State<SectionView> {
   String? _hoveredKey;
+  final Set<String> _expanded = <String>{};
 
   FilterSection get section => widget.section;
   ViewSettings get settings => widget.settings;
@@ -802,19 +804,37 @@ class SectionViewState extends State<SectionView> {
     final keys = tickets.map((t) => t.key).toSet();
     final hiddenByParent = _hiddenByParent(keys);
     if (settings.mode == ViewMode.flat) {
-      return _sorted(tickets)
-          .map(
-            (t) => _Row(
-              ticket: t,
-              indented: false,
-              parentCaption: t.parentKey.isNotEmpty,
-              parentInList: keys.contains(t.parentKey),
-              hiddenChildren: hiddenByParent[t.key] ?? const [],
-            ),
-          )
-          .toList();
+      final rows = <_Row>[];
+      for (final t in _sorted(tickets)) {
+        final hidden = hiddenByParent[t.key] ?? const <JiraTicket>[];
+        rows.add(_Row(
+          ticket: t,
+          indented: false,
+          parentCaption: t.parentKey.isNotEmpty,
+          parentInList: keys.contains(t.parentKey),
+          hiddenChildren: hidden,
+        ));
+        rows.addAll(_elidedRowsFor(t.key, hidden));
+      }
+      return rows;
     }
     return _grouped(tickets, keys, hiddenByParent);
+  }
+
+  Iterable<_Row> _elidedRowsFor(String parentKey, List<JiraTicket> hidden) {
+    if (hidden.isEmpty || !_expanded.contains(parentKey)) {
+      return const <_Row>[];
+    }
+    return [
+      for (final c in _sorted(hidden))
+        _Row(
+          ticket: c,
+          indented: true,
+          parentCaption: false,
+          parentInList: true,
+          filterElided: true,
+        ),
+    ];
   }
 
   Map<String, List<JiraTicket>> _hiddenByParent(Set<String> visible) {
@@ -847,13 +867,15 @@ class SectionViewState extends State<SectionView> {
     final rows = <_Row>[];
     for (final t in _sorted(tops)) {
       final orphan = t.parentKey.isNotEmpty;
+      final hidden = hiddenByParent[t.key] ?? const <JiraTicket>[];
       rows.add(_Row(
         ticket: t,
         indented: false,
         parentCaption: orphan,
         parentInList: false,
-        hiddenChildren: hiddenByParent[t.key] ?? const [],
+        hiddenChildren: hidden,
       ));
+      rows.addAll(_elidedRowsFor(t.key, hidden));
       for (final c in _sorted(children[t.key] ?? const <JiraTicket>[])) {
         rows.add(_Row(
           ticket: c,
@@ -946,23 +968,25 @@ class SectionViewState extends State<SectionView> {
   TableRow _bodyRow(_Row row, ThemeData theme) {
     final t = row.ticket;
     final hovered = _hoveredKey == t.key;
+    Widget dim(Widget w) =>
+        row.filterElided ? Opacity(opacity: 0.55, child: w) : w;
     return TableRow(
       decoration: BoxDecoration(
         color: hovered ? theme.colorScheme.surfaceContainerHigh : null,
       ),
       children: [
-        _bodyCell(t, _typeCell(row)),
-        _bodyCell(t, Text(t.key)),
-        _bodyCell(t, _summaryCell(t, row.parentCaption, theme)),
-        _bodyCell(t, _priorityCell(t)),
+        _bodyCell(t, dim(_typeCell(row))),
+        _bodyCell(t, dim(Text(t.key))),
+        _bodyCell(t, dim(_summaryCell(t, row.parentCaption, theme))),
+        _bodyCell(t, dim(_priorityCell(t))),
         _bodyCell(
           t,
-          Text(t.assignee.isEmpty ? '—' : t.assignee),
+          dim(Text(t.assignee.isEmpty ? '—' : t.assignee)),
           onTapWithContext: (ctx) => _onAssigneeTap(ctx, t),
         ),
         _bodyCell(
           t,
-          Text(t.statusName, overflow: TextOverflow.ellipsis),
+          dim(Text(t.statusName, overflow: TextOverflow.ellipsis)),
           onTapWithContext: (ctx) => _onStatusTap(ctx, t),
         ),
       ],
@@ -1088,80 +1112,26 @@ class SectionViewState extends State<SectionView> {
   }
 
   Widget _hiddenChildrenIndicator(_Row row) {
-    return Builder(
-      builder: (ctx) => Tooltip(
-        message: 'Hidden sub-tasks',
-        child: InkWell(
-          key: ValueKey('hidden-children-${row.ticket.key}'),
-          onTap: () => _openHiddenChildren(ctx, row.hiddenChildren),
-          child: const Icon(Icons.unfold_more, size: 16),
+    final expanded = _expanded.contains(row.ticket.key);
+    return Tooltip(
+      message: expanded ? 'Hide elided sub-tasks' : 'Show hidden sub-tasks',
+      child: InkWell(
+        key: ValueKey('hidden-children-${row.ticket.key}'),
+        onTap: () => _toggleHiddenChildren(row.ticket.key),
+        child: Icon(
+          expanded ? Icons.unfold_less : Icons.unfold_more,
+          size: 16,
         ),
       ),
     );
   }
 
-  Future<void> _openHiddenChildren(
-    BuildContext context,
-    List<JiraTicket> children,
-  ) async {
-    final overlay =
-        Navigator.of(context).overlay?.context.findRenderObject() as RenderBox?;
-    final box = context.findRenderObject() as RenderBox?;
-    if (box == null || overlay == null) return;
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        box.localToGlobal(Offset.zero, ancestor: overlay),
-        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
-      ),
-      Offset.zero & overlay.size,
-    );
-    final picked = await showMenu<JiraTicket>(
-      context: context,
-      position: position,
-      items: [
-        for (final child in children)
-          PopupMenuItem<JiraTicket>(
-            value: child,
-            child: _hiddenChildRow(child),
-          ),
-      ],
-    );
-    if (picked == null) return;
-    widget.onTicketTap(picked);
-  }
-
-  Widget _hiddenChildRow(JiraTicket t) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(t.key),
-        const SizedBox(width: 8),
-        Flexible(
-          fit: FlexFit.loose,
-          child: Text(
-            t.summary,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            softWrap: false,
-          ),
-        ),
-        const SizedBox(width: 8),
-        StatusChip(status: t.statusName),
-        const SizedBox(width: 8),
-        Flexible(
-          fit: FlexFit.loose,
-          child: Builder(
-            builder: (ctx) => Text(
-              t.assignee.isEmpty ? '—' : t.assignee,
-              style: Theme.of(ctx).textTheme.bodySmall,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-            ),
-          ),
-        ),
-      ],
-    );
+  void _toggleHiddenChildren(String parentKey) {
+    setState(() {
+      if (!_expanded.add(parentKey)) {
+        _expanded.remove(parentKey);
+      }
+    });
   }
 
   Widget _priorityCell(JiraTicket t) {
