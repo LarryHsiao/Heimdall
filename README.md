@@ -68,7 +68,7 @@ fvm flutter run -d macos     # or: -d windows
 - **Comments pane** — read existing comments, post new plain-text ones; lives at the right of the detail page on wide windows, below the description on narrow ones. Auto-refreshes every 30 s while the window is focused; pauses when blurred or hidden.
 - **Attachments** — image attachments render as a thumbnail wrap below the description; tap to open full size in a zoomable dialog. Non-image attachments appear as filename chips that open the file URL in the browser. Read-only — uploads, renames, and deletes stay in the web UI.
 - **Sub-tasks & Links** — sub-tasks list below the description; issue links group by their directional label (`blocks`, `is blocked by`, `relates to`, …). Each row carries type icon · key · summary · status; tap opens that ticket's own detail page on top of the navigation stack.
-- **Hidden sub-tasks indicator** — when a filter or search elides a parent's sub-tasks from the table, a small icon marks the parent row; tap it to pop a list of the hidden children, each opening its own detail page.
+- **Hidden sub-tasks indicator** — when a filter or search elides a parent's sub-tasks from the table, a small icon marks the parent row; tap to expand the elided children inline, indented under the parent and dimmed to mark them as filter-elided. Tap again to collapse.
 - **Assignee picker** — tap the **Assignee** cell in the table, or the assignee line on the detail page, to pop a dialog of the project's assignable users with a search box and an *(Unassigned)* row at the top. Tapping a row commits the change and refreshes the section optimistically; no Save button. Backed by Jira's `/user/assignable/search` and `/issue/{key}/assignee` endpoints.
 
 ## Storage
