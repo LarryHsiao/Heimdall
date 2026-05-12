@@ -16,6 +16,7 @@ import 'assignee_picker.dart';
 import 'filter_form_page.dart';
 import 'filters_page.dart';
 import 'settings_page.dart';
+import 'status_chip.dart';
 import 'ticket_chrome.dart';
 import 'ticket_detail_page.dart';
 
@@ -1201,24 +1202,4 @@ class SectionViewState extends State<SectionView> {
     );
   }
 
-}
-
-class StatusChip extends StatelessWidget {
-  final String status;
-
-  const StatusChip({super.key, required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final label = status.isEmpty ? '—' : status;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(label, style: theme.textTheme.bodySmall),
-    );
-  }
 }

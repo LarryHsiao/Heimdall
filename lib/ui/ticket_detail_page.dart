@@ -13,8 +13,8 @@ import '../data/jira_ticket.dart';
 import '../data/jira_transition.dart';
 import '../data/jira_user.dart';
 import 'assignee_picker.dart';
+import 'status_chip.dart';
 import 'ticket_chrome.dart';
-import 'tickets_page.dart';
 
 const double _wideThreshold = 800;
 const Duration _pollInterval = Duration(seconds: 30);
