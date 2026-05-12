@@ -100,25 +100,27 @@ class _TicketsPageState extends State<TicketsPage> {
   ) {
     final data = _data;
     if (data == null) return;
+    JiraTicket patch(JiraTicket t) {
+      if (t.key != key) return t;
+      return JiraTicket(
+        key: t.key,
+        summary: t.summary,
+        statusName: newStatus.isEmpty ? t.statusName : newStatus,
+        statusCategory:
+            newStatusCategory.isEmpty ? t.statusCategory : newStatusCategory,
+        issueType: t.issueType,
+        priority: t.priority,
+        assignee: t.assignee,
+        parentKey: t.parentKey,
+        parentSummary: t.parentSummary,
+      );
+    }
+
     final sections = data.sections.map((s) {
-      final tickets = s.tickets.map((t) {
-        if (t.key != key) return t;
-        return JiraTicket(
-          key: t.key,
-          summary: t.summary,
-          statusName: newStatus.isEmpty ? t.statusName : newStatus,
-          statusCategory:
-              newStatusCategory.isEmpty ? t.statusCategory : newStatusCategory,
-          issueType: t.issueType,
-          priority: t.priority,
-          assignee: t.assignee,
-          parentKey: t.parentKey,
-          parentSummary: t.parentSummary,
-        );
-      }).toList();
       return FilterSection(
         filter: s.filter,
-        tickets: tickets,
+        tickets: s.tickets.map(patch).toList(),
+        allTickets: s.allTickets.map(patch).toList(),
         error: s.error,
       );
     }).toList();
@@ -227,24 +229,26 @@ class _TicketsPageState extends State<TicketsPage> {
   void _patchTicketAssignee(String key, String displayName) {
     final data = _data;
     if (data == null) return;
+    JiraTicket patch(JiraTicket t) {
+      if (t.key != key) return t;
+      return JiraTicket(
+        key: t.key,
+        summary: t.summary,
+        statusName: t.statusName,
+        statusCategory: t.statusCategory,
+        issueType: t.issueType,
+        priority: t.priority,
+        assignee: displayName,
+        parentKey: t.parentKey,
+        parentSummary: t.parentSummary,
+      );
+    }
+
     final sections = data.sections.map((s) {
-      final tickets = s.tickets.map((t) {
-        if (t.key != key) return t;
-        return JiraTicket(
-          key: t.key,
-          summary: t.summary,
-          statusName: t.statusName,
-          statusCategory: t.statusCategory,
-          issueType: t.issueType,
-          priority: t.priority,
-          assignee: displayName,
-          parentKey: t.parentKey,
-          parentSummary: t.parentSummary,
-        );
-      }).toList();
       return FilterSection(
         filter: s.filter,
-        tickets: tickets,
+        tickets: s.tickets.map(patch).toList(),
+        allTickets: s.allTickets.map(patch).toList(),
         error: s.error,
       );
     }).toList();
@@ -375,7 +379,7 @@ class _TicketsPageState extends State<TicketsPage> {
               children: filtered
                   .map(
                     (s) => SingleChildScrollView(
-                      child: _SectionView(
+                      child: SectionView(
                         section: s,
                         settings: _settings,
                         onSort: _onSort,
@@ -427,6 +431,7 @@ class _TicketsPageState extends State<TicketsPage> {
                     (assignee == null || t.assignee == assignee) &&
                     t.matchesSearch(q))
                 .toList(),
+            allTickets: s.allTickets,
             error: s.error,
           ),
         )
@@ -559,13 +564,15 @@ class _PageState {
 class FilterSection {
   final JiraFilter filter;
   final List<JiraTicket> tickets;
+  final List<JiraTicket> allTickets;
   final String? error;
 
   const FilterSection({
     required this.filter,
     required this.tickets,
+    List<JiraTicket>? allTickets,
     this.error,
-  });
+  }) : allTickets = allTickets ?? tickets;
 }
 
 class _Row {
@@ -573,12 +580,16 @@ class _Row {
   final bool indented;
   final bool parentCaption;
   final bool parentInList;
+  final List<JiraTicket> hiddenChildren;
+  final bool filterElided;
 
   const _Row({
     required this.ticket,
     required this.indented,
     required this.parentCaption,
     required this.parentInList,
+    this.hiddenChildren = const [],
+    this.filterElided = false,
   });
 }
 
@@ -608,7 +619,7 @@ class _Empty extends StatelessWidget {
   }
 }
 
-class _SectionView extends StatefulWidget {
+class SectionView extends StatefulWidget {
   final FilterSection section;
   final ViewSettings settings;
   final void Function(SortColumn column, bool ascending) onSort;
@@ -620,7 +631,8 @@ class _SectionView extends StatefulWidget {
       onLoadAssignableUsers;
   final Future<void> Function(JiraTicket, JiraUser?) onApplyAssignee;
 
-  const _SectionView({
+  const SectionView({
+    super.key,
     required this.section,
     required this.settings,
     required this.onSort,
@@ -633,11 +645,12 @@ class _SectionView extends StatefulWidget {
   });
 
   @override
-  State<_SectionView> createState() => _SectionViewState();
+  State<SectionView> createState() => SectionViewState();
 }
 
-class _SectionViewState extends State<_SectionView> {
+class SectionViewState extends State<SectionView> {
   String? _hoveredKey;
+  final Set<String> _expanded = <String>{};
 
   FilterSection get section => widget.section;
   ViewSettings get settings => widget.settings;
@@ -789,22 +802,59 @@ class _SectionViewState extends State<_SectionView> {
 
   List<_Row> _arrange(List<JiraTicket> tickets) {
     final keys = tickets.map((t) => t.key).toSet();
+    final hiddenByParent = _hiddenByParent(keys);
     if (settings.mode == ViewMode.flat) {
-      return _sorted(tickets)
-          .map(
-            (t) => _Row(
-              ticket: t,
-              indented: false,
-              parentCaption: t.parentKey.isNotEmpty,
-              parentInList: keys.contains(t.parentKey),
-            ),
-          )
-          .toList();
+      final rows = <_Row>[];
+      for (final t in _sorted(tickets)) {
+        final hidden = hiddenByParent[t.key] ?? const <JiraTicket>[];
+        rows.add(_Row(
+          ticket: t,
+          indented: false,
+          parentCaption: t.parentKey.isNotEmpty,
+          parentInList: keys.contains(t.parentKey),
+          hiddenChildren: hidden,
+        ));
+        rows.addAll(_elidedRowsFor(t.key, hidden));
+      }
+      return rows;
     }
-    return _grouped(tickets, keys);
+    return _grouped(tickets, keys, hiddenByParent);
   }
 
-  List<_Row> _grouped(List<JiraTicket> tickets, Set<String> keys) {
+  Iterable<_Row> _elidedRowsFor(String parentKey, List<JiraTicket> hidden) {
+    if (hidden.isEmpty || !_expanded.contains(parentKey)) {
+      return const <_Row>[];
+    }
+    return [
+      for (final c in _sorted(hidden))
+        _Row(
+          ticket: c,
+          indented: true,
+          parentCaption: false,
+          parentInList: true,
+          filterElided: true,
+        ),
+    ];
+  }
+
+  Map<String, List<JiraTicket>> _hiddenByParent(Set<String> visible) {
+    final all = section.allTickets;
+    if (identical(all, section.tickets)) return const {};
+    final hidden = <String, List<JiraTicket>>{};
+    for (final t in all) {
+      if (t.parentKey.isEmpty) continue;
+      if (visible.contains(t.key)) continue;
+      if (!visible.contains(t.parentKey)) continue;
+      hidden.putIfAbsent(t.parentKey, () => []).add(t);
+    }
+    return hidden;
+  }
+
+  List<_Row> _grouped(
+    List<JiraTicket> tickets,
+    Set<String> keys,
+    Map<String, List<JiraTicket>> hiddenByParent,
+  ) {
     final tops = <JiraTicket>[];
     final children = <String, List<JiraTicket>>{};
     for (final t in tickets) {
@@ -817,18 +867,22 @@ class _SectionViewState extends State<_SectionView> {
     final rows = <_Row>[];
     for (final t in _sorted(tops)) {
       final orphan = t.parentKey.isNotEmpty;
+      final hidden = hiddenByParent[t.key] ?? const <JiraTicket>[];
       rows.add(_Row(
         ticket: t,
         indented: false,
         parentCaption: orphan,
         parentInList: false,
+        hiddenChildren: hidden,
       ));
+      rows.addAll(_elidedRowsFor(t.key, hidden));
       for (final c in _sorted(children[t.key] ?? const <JiraTicket>[])) {
         rows.add(_Row(
           ticket: c,
           indented: true,
           parentCaption: false,
           parentInList: true,
+          hiddenChildren: hiddenByParent[c.key] ?? const [],
         ));
       }
     }
@@ -914,23 +968,25 @@ class _SectionViewState extends State<_SectionView> {
   TableRow _bodyRow(_Row row, ThemeData theme) {
     final t = row.ticket;
     final hovered = _hoveredKey == t.key;
+    Widget dim(Widget w) =>
+        row.filterElided ? Opacity(opacity: 0.55, child: w) : w;
     return TableRow(
       decoration: BoxDecoration(
         color: hovered ? theme.colorScheme.surfaceContainerHigh : null,
       ),
       children: [
-        _bodyCell(t, _typeCell(row)),
-        _bodyCell(t, Text(t.key)),
-        _bodyCell(t, _summaryCell(t, row.parentCaption, theme)),
-        _bodyCell(t, _priorityCell(t)),
+        _bodyCell(t, dim(_typeCell(row))),
+        _bodyCell(t, dim(Text(t.key))),
+        _bodyCell(t, dim(_summaryCell(t, row.parentCaption, theme))),
+        _bodyCell(t, dim(_priorityCell(t))),
         _bodyCell(
           t,
-          Text(t.assignee.isEmpty ? '—' : t.assignee),
+          dim(Text(t.assignee.isEmpty ? '—' : t.assignee)),
           onTapWithContext: (ctx) => _onAssigneeTap(ctx, t),
         ),
         _bodyCell(
           t,
-          Text(t.statusName, overflow: TextOverflow.ellipsis),
+          dim(Text(t.statusName, overflow: TextOverflow.ellipsis)),
           onTapWithContext: (ctx) => _onStatusTap(ctx, t),
         ),
       ],
@@ -1039,11 +1095,43 @@ class _SectionViewState extends State<_SectionView> {
     final icon = orphanSub ? Icons.check_box_outlined : t.typeIcon;
     return Padding(
       padding: EdgeInsets.only(left: row.indented ? 24 : 0),
-      child: Tooltip(
-        message: t.issueType,
-        child: Icon(icon, size: 18),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Tooltip(
+            message: t.issueType,
+            child: Icon(icon, size: 18),
+          ),
+          if (row.hiddenChildren.isNotEmpty) ...[
+            const SizedBox(width: 4),
+            _hiddenChildrenIndicator(row),
+          ],
+        ],
       ),
     );
+  }
+
+  Widget _hiddenChildrenIndicator(_Row row) {
+    final expanded = _expanded.contains(row.ticket.key);
+    return Tooltip(
+      message: expanded ? 'Hide elided sub-tasks' : 'Show hidden sub-tasks',
+      child: InkWell(
+        key: ValueKey('hidden-children-${row.ticket.key}'),
+        onTap: () => _toggleHiddenChildren(row.ticket.key),
+        child: Icon(
+          expanded ? Icons.unfold_less : Icons.unfold_more,
+          size: 16,
+        ),
+      ),
+    );
+  }
+
+  void _toggleHiddenChildren(String parentKey) {
+    setState(() {
+      if (!_expanded.add(parentKey)) {
+        _expanded.remove(parentKey);
+      }
+    });
   }
 
   Widget _priorityCell(JiraTicket t) {
