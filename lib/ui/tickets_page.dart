@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -26,7 +27,10 @@ class TicketsPage extends StatefulWidget {
   State<TicketsPage> createState() => _TicketsPageState();
 }
 
-class _TicketsPageState extends State<TicketsPage> {
+class _TicketsPageState extends State<TicketsPage>
+    with WidgetsBindingObserver {
+  static const Duration _pollInterval = Duration(seconds: 60);
+
   final Vault _vault = Vault();
   final Filters _filters = Filters();
   final Preferences _preferences = Preferences();
@@ -39,9 +43,15 @@ class _TicketsPageState extends State<TicketsPage> {
   _PageState? _data;
   bool _loading = true;
   String? _loadError;
+  Timer? _poll;
+  TabController? _trackedTabs;
+  int _activeTabIndex = 0;
 
   @override
   void dispose() {
+    _stopPolling();
+    _detachTabListener();
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
   }
@@ -49,15 +59,83 @@ class _TicketsPageState extends State<TicketsPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _bootstrap();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startPolling();
+    } else {
+      _stopPolling();
+    }
   }
 
   Future<void> _bootstrap() async {
     _settings = await _preferences.read();
     await _doLoad();
+    _startPolling();
   }
 
   Future<void> _refresh() async => _doLoad();
+
+  void _startPolling() {
+    if (_poll != null) return;
+    _poll = Timer.periodic(_pollInterval, (_) => _pollActiveSection());
+  }
+
+  void _stopPolling() {
+    _poll?.cancel();
+    _poll = null;
+  }
+
+  Future<void> _pollActiveSection() async {
+    if (_loading) return;
+    final data = _data;
+    if (data == null || data.credentials == null) return;
+    if (_activeTabIndex < 0 || _activeTabIndex >= data.sections.length) return;
+    final filter = data.sections[_activeTabIndex].filter;
+    try {
+      final tickets = await _jira.tickets(filter, data.credentials!);
+      if (!mounted) return;
+      _patchSection(filter, tickets);
+    } catch (_) {
+      // Quiet failure — manual Refresh surfaces persistent errors.
+    }
+  }
+
+  void _patchSection(JiraFilter filter, List<JiraTicket> tickets) {
+    final data = _data;
+    if (data == null) return;
+    final idx = data.sections.indexWhere((s) => s.filter.id == filter.id);
+    if (idx == -1) return;
+    final sections = [...data.sections];
+    sections[idx] = FilterSection(filter: filter, tickets: tickets);
+    setState(() {
+      _data = _PageState(credentials: data.credentials, sections: sections);
+    });
+  }
+
+  void _trackTabController(TabController controller) {
+    if (identical(_trackedTabs, controller)) return;
+    _detachTabListener();
+    _trackedTabs = controller;
+    _activeTabIndex = controller.index;
+    controller.addListener(_onTabChange);
+  }
+
+  void _detachTabListener() {
+    _trackedTabs?.removeListener(_onTabChange);
+    _trackedTabs = null;
+  }
+
+  void _onTabChange() {
+    final controller = _trackedTabs;
+    if (controller == null) return;
+    if (controller.indexIsChanging) return;
+    _activeTabIndex = controller.index;
+  }
 
   Future<void> _doLoad() async {
     setState(() {
@@ -353,7 +431,9 @@ class _TicketsPageState extends State<TicketsPage> {
     return DefaultTabController(
       key: ValueKey(keyId),
       length: filtered.length,
-      child: Column(
+      child: Builder(builder: (ctx) {
+        _trackTabController(DefaultTabController.of(ctx));
+        return Column(
         children: [
           Material(
             color: Theme.of(context).colorScheme.surface,
@@ -397,7 +477,8 @@ class _TicketsPageState extends State<TicketsPage> {
             ),
           ),
         ],
-      ),
+        );
+      }),
     );
   }
 

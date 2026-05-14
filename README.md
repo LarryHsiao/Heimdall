@@ -64,6 +64,7 @@ fvm flutter run -d macos     # or: -d windows
 - **Search** — text field beside the tab strip; live-filters visible rows by key, summary, assignee, or status (substring, case-insensitive). In memory only.
 - **Open by key** — the `#` icon in the AppBar pops a small dialog; type a key like `PSG-1234` and press Enter to jump straight to its detail page.
 - **Mode toggle** — Grouped (default) or Flat, in the AppBar; persists across launches.
+- **Auto-refresh** — the active tab's section reloads every 60 s while the window is focused; pauses when blurred or hidden. Other tabs hold until you click Refresh or rotate to them.
 - **Detail page** — row click opens it; description ADF is converted to Markdown and rendered with `flutter_markdown_plus`. Inline task lists (ADF `taskList`) render as GFM checkboxes — tap to flip TODO/DONE; the change PUTs the modified description back to Jira and the local view updates optimistically.
 - **Comments pane** — read existing comments, post new plain-text ones; lives at the right of the detail page on wide windows, below the description on narrow ones. Auto-refreshes every 30 s while the window is focused; pauses when blurred or hidden.
 - **Attachments** — image attachments render as a thumbnail wrap below the description; tap to open full size in a zoomable dialog. Non-image attachments appear as filename chips that open the file URL in the browser. Read-only — uploads, renames, and deletes stay in the web UI.
@@ -88,12 +89,12 @@ fvm flutter run -d macos     # or: -d windows
 ## Roadmap
 
 - Window-position and size memory (`window_manager`).
-- Auto-refresh on a configurable timer.
+- Configurable auto-refresh interval.
 - Tests beyond the boot smoke test.
 
 ## Issues
 
-Bug reports and feature requests live on the project's [GitHub Issues](https://github.com/LarryHsiao/Heimdall/issues).
+Bug reports and feature requests live on the project's [YouTrack board](https://larryhsiao.com:9081/issues/HEI).
 
 ## Project Layout
 
