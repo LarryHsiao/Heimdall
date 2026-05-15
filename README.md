@@ -86,11 +86,21 @@ fvm flutter run -d macos     # or: -d windows
 - Boards, sprints, admin, full-text search.
 - Default filters shipped with the app — every filter is user-added.
 
+## Release
+
+Each tagged release ships archives for both desktop targets on [GitHub Releases](https://github.com/LarryHsiao/Heimdall/releases).
+
+- **macOS** — `heimdall.dmg` (drag-to-Applications installer) and `heimdall.zip` (the stapled `.app`, for users who skip the disk image). Both signed with Developer ID and notarized by Apple.
+- **Windows** — `heimdall-setup-<version>.exe` (Inno Setup installer — Start Menu shortcut, optional desktop icon, clean uninstall) **and** `heimdall-<version>-windows.zip` (the raw `Release\` folder, for users who prefer a portable copy). Neither is code-signed yet, so first launch trips SmartScreen.
+
+The Inno Setup script lives at `installer/heimdall.iss`, tracked in the repo. The publish workflow must compile it with `ISCC.exe` and attach the resulting `heimdall-setup-<version>.exe` to the release — the raw zip alone is not a release. The script's `MyAppVersion` literal is hand-bumped to match `pubspec.yaml` before each compile; if it drifts, the installer ships under the wrong filename.
+
 ## Roadmap
 
 - Window-position and size memory (`window_manager`).
 - Configurable auto-refresh interval.
 - Tests beyond the boot smoke test.
+- Pass `MyAppVersion` to ISCC on the command line so the Inno script need not be hand-edited each release.
 
 ## Issues
 
