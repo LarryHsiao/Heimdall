@@ -49,3 +49,8 @@ app.*.map.json
 
 # Per-machine Claude Code config
 .claude/
+
+# One-time CI secrets bundle written by scripts/collect_macos_ci_secrets.sh.
+# This file carries a base64 Developer ID .p12 and an App Store Connect
+# .p8 private key — never commit it.
+macos_ci_secrets.env
