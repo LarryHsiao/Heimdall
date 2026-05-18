@@ -43,20 +43,21 @@ extension JiraTicketChrome on JiraTicket {
     }
   }
 
-  Color get priorityColor {
+  Color priorityColor(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     switch (priority.toLowerCase()) {
       case 'highest':
-        return Colors.red.shade700;
+        return isDark ? Colors.red.shade300 : Colors.red.shade700;
       case 'high':
-        return Colors.red.shade400;
+        return isDark ? Colors.red.shade200 : Colors.red.shade400;
       case 'medium':
-        return Colors.orange;
+        return isDark ? Colors.orange.shade300 : Colors.orange;
       case 'low':
-        return Colors.blue.shade400;
+        return isDark ? Colors.blue.shade200 : Colors.blue.shade400;
       case 'lowest':
-        return Colors.blue.shade700;
+        return isDark ? Colors.blue.shade300 : Colors.blue.shade700;
       default:
-        return Colors.grey;
+        return isDark ? Colors.grey.shade400 : Colors.grey;
     }
   }
 }
