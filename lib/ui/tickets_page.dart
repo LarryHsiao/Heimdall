@@ -1221,7 +1221,7 @@ class SectionViewState extends State<SectionView> {
       message: t.priority,
       child: Icon(
         t.priorityIcon,
-        color: t.priorityColor,
+        color: t.priorityColor(context),
         size: 18,
       ),
     );

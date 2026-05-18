@@ -542,7 +542,7 @@ class _TicketDetailPageState extends State<TicketDetailPage>
             theme,
             _ticket.priority,
             icon: _ticket.priorityIcon,
-            iconColor: _ticket.priorityColor,
+            iconColor: _ticket.priorityColor(context),
           ),
       ],
     );

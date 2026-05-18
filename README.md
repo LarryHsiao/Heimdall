@@ -49,6 +49,7 @@ fvm flutter run -d macos     # or: -d windows
    - **Base URL** — e.g. `https://your-org.atlassian.net`
    - **Email** — your Atlassian login
    - **API Token** — from `id.atlassian.com` → Security
+   - **Appearance** — Light / Dark / System; defaults to System, persists across launches.
 3. Save, return, and tap **Add filter**. Each filter takes either:
    - A **filter ID** (e.g. `10363`) — Heimdall wraps it as `filter = 10363`
    - A raw **JQL** expression (e.g. `assignee = currentUser() AND resolution = Unresolved`)
@@ -77,6 +78,7 @@ fvm flutter run -d macos     # or: -d windows
 - **Credentials** — `flutter_secure_storage`: Keychain on macOS, Credential Manager on Windows.
 - **Filter list** — `shared_preferences`: JSON-encoded, plain on disk.
 - **View settings** — `shared_preferences`: column widths, sort, view mode.
+- **Appearance** — `shared_preferences`: theme mode (light / dark / system).
 
 ## Out of Scope
 

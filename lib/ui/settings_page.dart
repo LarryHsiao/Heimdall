@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/appearance.dart';
 import '../data/jira_credentials.dart';
 import '../data/vault.dart';
 
@@ -60,6 +61,40 @@ class _SettingsPageState extends State<SettingsPage> {
     Navigator.of(context).pop();
   }
 
+  Widget _appearanceRow() {
+    final appearance = AppearanceScope.of(context);
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Appearance', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 8),
+        SegmentedButton<ThemeMode>(
+          segments: const [
+            ButtonSegment(
+              value: ThemeMode.light,
+              label: Text('Light'),
+              icon: Icon(Icons.light_mode_outlined),
+            ),
+            ButtonSegment(
+              value: ThemeMode.dark,
+              label: Text('Dark'),
+              icon: Icon(Icons.dark_mode_outlined),
+            ),
+            ButtonSegment(
+              value: ThemeMode.system,
+              label: Text('System'),
+              icon: Icon(Icons.brightness_auto_outlined),
+            ),
+          ],
+          selected: {appearance.mode},
+          onSelectionChanged: (selection) =>
+              appearance.setMode(selection.first),
+        ),
+      ],
+    );
+  }
+
   String? _required(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Required';
@@ -106,6 +141,8 @@ class _SettingsPageState extends State<SettingsPage> {
               obscureText: true,
               validator: _required,
             ),
+            const SizedBox(height: 24),
+            _appearanceRow(),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _saving ? null : _save,

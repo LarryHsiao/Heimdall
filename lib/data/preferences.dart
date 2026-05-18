@@ -1,15 +1,17 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'view_settings.dart';
 
 class Preferences {
-  static const _key = 'view_settings';
+  static const _viewKey = 'view_settings';
+  static const _themeKey = 'theme_mode';
 
   Future<ViewSettings> read() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
+    final raw = prefs.getString(_viewKey);
     if (raw == null || raw.isEmpty) {
       return const ViewSettings();
     }
@@ -18,6 +20,20 @@ class Preferences {
 
   Future<void> save(ViewSettings settings) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode(settings.toJson()));
+    await prefs.setString(_viewKey, jsonEncode(settings.toJson()));
+  }
+
+  Future<ThemeMode> readThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_themeKey);
+    return ThemeMode.values.firstWhere(
+      (m) => m.name == raw,
+      orElse: () => ThemeMode.system,
+    );
+  }
+
+  Future<void> saveThemeMode(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeKey, mode.name);
   }
 }
