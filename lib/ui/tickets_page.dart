@@ -65,6 +65,8 @@ class _TicketsPageState extends State<TicketsPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Poll only while the window is in focus; every other state
+    // (inactive, paused, hidden, detached) pauses the timer.
     if (state == AppLifecycleState.resumed) {
       _startPolling();
     } else {
@@ -105,6 +107,29 @@ class _TicketsPageState extends State<TicketsPage>
     }
   }
 
+  void _setSections(List<FilterSection> sections) {
+    final data = _data;
+    if (data == null) return;
+    setState(() {
+      _data = _PageState(credentials: data.credentials, sections: sections);
+    });
+  }
+
+  void _patchTicket(String key, JiraTicket Function(JiraTicket) patch) {
+    final data = _data;
+    if (data == null) return;
+    JiraTicket apply(JiraTicket t) => t.key == key ? patch(t) : t;
+    final sections = data.sections
+        .map((s) => FilterSection(
+              filter: s.filter,
+              tickets: s.tickets.map(apply).toList(),
+              allTickets: s.allTickets.map(apply).toList(),
+              error: s.error,
+            ))
+        .toList();
+    _setSections(sections);
+  }
+
   void _patchSection(JiraFilter filter, List<JiraTicket> tickets) {
     final data = _data;
     if (data == null) return;
@@ -112,9 +137,7 @@ class _TicketsPageState extends State<TicketsPage>
     if (idx == -1) return;
     final sections = [...data.sections];
     sections[idx] = FilterSection(filter: filter, tickets: tickets);
-    setState(() {
-      _data = _PageState(credentials: data.credentials, sections: sections);
-    });
+    _setSections(sections);
   }
 
   void _trackTabController(TabController controller) {
@@ -176,11 +199,9 @@ class _TicketsPageState extends State<TicketsPage>
     String newStatus,
     String newStatusCategory,
   ) {
-    final data = _data;
-    if (data == null) return;
-    JiraTicket patch(JiraTicket t) {
-      if (t.key != key) return t;
-      return JiraTicket(
+    _patchTicket(
+      key,
+      (t) => JiraTicket(
         key: t.key,
         summary: t.summary,
         statusName: newStatus.isEmpty ? t.statusName : newStatus,
@@ -191,20 +212,8 @@ class _TicketsPageState extends State<TicketsPage>
         assignee: t.assignee,
         parentKey: t.parentKey,
         parentSummary: t.parentSummary,
-      );
-    }
-
-    final sections = data.sections.map((s) {
-      return FilterSection(
-        filter: s.filter,
-        tickets: s.tickets.map(patch).toList(),
-        allTickets: s.allTickets.map(patch).toList(),
-        error: s.error,
-      );
-    }).toList();
-    setState(() {
-      _data = _PageState(credentials: data.credentials, sections: sections);
-    });
+      ),
+    );
   }
 
   Future<FilterSection> _section(
@@ -305,11 +314,9 @@ class _TicketsPageState extends State<TicketsPage>
   }
 
   void _patchTicketAssignee(String key, String displayName) {
-    final data = _data;
-    if (data == null) return;
-    JiraTicket patch(JiraTicket t) {
-      if (t.key != key) return t;
-      return JiraTicket(
+    _patchTicket(
+      key,
+      (t) => JiraTicket(
         key: t.key,
         summary: t.summary,
         statusName: t.statusName,
@@ -319,20 +326,8 @@ class _TicketsPageState extends State<TicketsPage>
         assignee: displayName,
         parentKey: t.parentKey,
         parentSummary: t.parentSummary,
-      );
-    }
-
-    final sections = data.sections.map((s) {
-      return FilterSection(
-        filter: s.filter,
-        tickets: s.tickets.map(patch).toList(),
-        allTickets: s.allTickets.map(patch).toList(),
-        error: s.error,
-      );
-    }).toList();
-    setState(() {
-      _data = _PageState(credentials: data.credentials, sections: sections);
-    });
+      ),
+    );
   }
 
   void _toggleMode() {
