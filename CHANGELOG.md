@@ -4,6 +4,13 @@ All notable changes to Heimdall are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [1.3.1] — 2026-05-18
+
+### Added
+
+- JQL field autocomplete — typing in the JQL box now offers field names and keyword completions, and value suggestions that are context-aware (proposed values depend on the field being filtered).
+- Appearance toggle — Light / Dark / System mode, persisted across launches.
+
 ## [1.1.1] — 2026-05-11
 
 ### Added
