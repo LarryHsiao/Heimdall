@@ -118,15 +118,8 @@ class _TicketsPageState extends State<TicketsPage>
   void _patchTicket(String key, JiraTicket Function(JiraTicket) patch) {
     final data = _data;
     if (data == null) return;
-    JiraTicket apply(JiraTicket t) => t.key == key ? patch(t) : t;
-    final sections = data.sections
-        .map((s) => FilterSection(
-              filter: s.filter,
-              tickets: s.tickets.map(apply).toList(),
-              allTickets: s.allTickets.map(apply).toList(),
-              error: s.error,
-            ))
-        .toList();
+    final sections =
+        data.sections.map((s) => s.withTicketPatched(key, patch)).toList();
     _setSections(sections);
   }
 
@@ -649,6 +642,19 @@ class FilterSection {
     List<JiraTicket>? allTickets,
     this.error,
   }) : allTickets = allTickets ?? tickets;
+
+  FilterSection withTicketPatched(
+    String key,
+    JiraTicket Function(JiraTicket) patch,
+  ) {
+    JiraTicket apply(JiraTicket t) => t.key == key ? patch(t) : t;
+    return FilterSection(
+      filter: filter,
+      tickets: tickets.map(apply).toList(),
+      allTickets: allTickets.map(apply).toList(),
+      error: error,
+    );
+  }
 }
 
 class _Row {
@@ -880,21 +886,29 @@ class SectionViewState extends State<SectionView> {
     final keys = tickets.map((t) => t.key).toSet();
     final hiddenByParent = _hiddenByParent(keys);
     if (settings.mode == ViewMode.flat) {
-      final rows = <_Row>[];
-      for (final t in _sorted(tickets)) {
-        final hidden = hiddenByParent[t.key] ?? const <JiraTicket>[];
-        rows.add(_Row(
-          ticket: t,
-          indented: false,
-          parentCaption: t.parentKey.isNotEmpty,
-          parentInList: keys.contains(t.parentKey),
-          hiddenChildren: hidden,
-        ));
-        rows.addAll(_elidedRowsFor(t.key, hidden));
-      }
-      return rows;
+      return _flat(tickets, keys, hiddenByParent);
     }
     return _grouped(tickets, keys, hiddenByParent);
+  }
+
+  List<_Row> _flat(
+    List<JiraTicket> tickets,
+    Set<String> keys,
+    Map<String, List<JiraTicket>> hiddenByParent,
+  ) {
+    final rows = <_Row>[];
+    for (final t in _sorted(tickets)) {
+      final hidden = hiddenByParent[t.key] ?? const <JiraTicket>[];
+      rows.add(_Row(
+        ticket: t,
+        indented: false,
+        parentCaption: t.parentKey.isNotEmpty,
+        parentInList: keys.contains(t.parentKey),
+        hiddenChildren: hidden,
+      ));
+      rows.addAll(_elidedRowsFor(t.key, hidden));
+    }
+    return rows;
   }
 
   Iterable<_Row> _elidedRowsFor(String parentKey, List<JiraTicket> hidden) {
