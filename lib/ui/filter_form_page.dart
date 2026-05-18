@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../data/filters.dart';
+import '../data/jira.dart';
 import '../data/jira_filter.dart';
+import '../data/jql_autocompletion.dart';
+import '../data/jql_token.dart';
+import '../data/vault.dart';
 
 class FilterFormPage extends StatefulWidget {
   final JiraFilter? existing;
@@ -13,11 +17,21 @@ class FilterFormPage extends StatefulWidget {
 }
 
 class _FilterFormPageState extends State<FilterFormPage> {
+  static const int _maxSuggestions = 10;
+  static const JqlAutocompletion _emptyAutocompletion = JqlAutocompletion(
+    fieldNames: [],
+    functionNames: [],
+    reservedWords: [],
+  );
+
   final Filters _filters = Filters();
+  final Vault _vault = Vault();
+  final Jira _jira = Jira();
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _queryController;
   bool _saving = false;
+  JqlAutocompletion _autocompletion = _emptyAutocompletion;
 
   @override
   void initState() {
@@ -25,6 +39,7 @@ class _FilterFormPageState extends State<FilterFormPage> {
     _nameController = TextEditingController(text: widget.existing?.name ?? '');
     _queryController =
         TextEditingController(text: widget.existing?.query ?? '');
+    _loadAutocompletion();
   }
 
   @override
@@ -32,6 +47,18 @@ class _FilterFormPageState extends State<FilterFormPage> {
     _nameController.dispose();
     _queryController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadAutocompletion() async {
+    try {
+      final credentials = await _vault.read();
+      if (credentials == null) return;
+      final loaded = await _jira.jqlAutocomplete(credentials);
+      if (!mounted) return;
+      setState(() => _autocompletion = loaded);
+    } catch (_) {
+      // Quiet failure — autocomplete is a nicety, not a requirement.
+    }
   }
 
   Future<void> _save() async {
@@ -59,6 +86,62 @@ class _FilterFormPageState extends State<FilterFormPage> {
       return 'Required';
     }
     return null;
+  }
+
+  void _insertSuggestion(String suggestion) {
+    final selection = _queryController.selection;
+    if (!selection.isValid) return;
+    final cursor = selection.start;
+    final text = _queryController.text;
+    final token = lastTokenAt(text, cursor);
+    final prefix = text.substring(0, cursor - token.length);
+    final suffix = text.substring(cursor);
+    final newCursor = (prefix + suggestion).length;
+    _queryController.value = TextEditingValue(
+      text: '$prefix$suggestion$suffix',
+      selection: TextSelection.collapsed(offset: newCursor),
+    );
+  }
+
+  List<String> _matchesFor(String token) {
+    if (token.isEmpty) return const [];
+    final lower = token.toLowerCase();
+    return _autocompletion.suggestions
+        .where((s) {
+          final v = s.toLowerCase();
+          return v.startsWith(lower) && v != lower;
+        })
+        .take(_maxSuggestions)
+        .toList();
+  }
+
+  Widget _suggestions() {
+    return ListenableBuilder(
+      listenable: _queryController,
+      builder: (context, _) {
+        final selection = _queryController.selection;
+        if (!selection.isValid || selection.start != selection.end) {
+          return const SizedBox.shrink();
+        }
+        final token = lastTokenAt(_queryController.text, selection.start);
+        final matches = _matchesFor(token);
+        if (matches.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final m in matches)
+                ActionChip(
+                  label: Text(m),
+                  onPressed: () => _insertSuggestion(m),
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -89,6 +172,7 @@ class _FilterFormPageState extends State<FilterFormPage> {
                 maxLines: 3,
                 validator: _required,
               ),
+              _suggestions(),
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _saving ? null : _save,

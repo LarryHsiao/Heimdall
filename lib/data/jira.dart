@@ -11,6 +11,7 @@ import 'jira_issue_link.dart';
 import 'jira_ticket.dart';
 import 'jira_transition.dart';
 import 'jira_user.dart';
+import 'jql_autocompletion.dart';
 
 class Jira {
   final Dio _dio;
@@ -285,6 +286,20 @@ class Jira {
       },
       options: Options(headers: {'Authorization': 'Basic $auth'}),
     );
+  }
+
+  Future<JqlAutocompletion> jqlAutocomplete(
+    JiraCredentials credentials,
+  ) async {
+    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
+    final response = await _dio.get<Map<String, dynamic>>(
+      '$base/rest/api/3/jql/autocompletedata',
+      options: Options(headers: {'Authorization': 'Basic $auth'}),
+    );
+    return JqlAutocompletion.fromJson(response.data ?? const {});
   }
 }
 

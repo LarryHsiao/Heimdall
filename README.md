@@ -52,6 +52,8 @@ fvm flutter run -d macos     # or: -d windows
 3. Save, return, and tap **Add filter**. Each filter takes either:
    - A **filter ID** (e.g. `10363`) — Heimdall wraps it as `filter = 10363`
    - A raw **JQL** expression (e.g. `assignee = currentUser() AND resolution = Unresolved`)
+
+   The JQL field offers field-and-keyword autocomplete: as you type, a chip row below the field suggests field names, function names, and reserved words drawn from Jira's `/jql/autocompletedata` endpoint. Tap a chip to replace the partial token at the cursor; if the autocomplete fetch fails (no network, no credentials), the chips simply do not render and the field still saves.
 4. Each filter becomes its own tab across the top. Tickets render in a sortable, resizable table (Type · Key · Summary · Pri · Assignee · Status). Sub-tasks indent under their parent in **Grouped** mode; **Flat** mode treats every row as its own line — toggle in the AppBar.
 5. Click most cells to open the ticket in the in-app **detail page** — header, status pill, type and priority chips, assignee/reporter/dates, and the description rendered as Markdown. A **Comments** pane to the right (or below, on a narrow window) lists existing comments and accepts new plain-text ones. The detail page bears its own *Open in browser* and *Refresh* actions, and the status pill there pops the same transition menu as the table. Click the table's **Status** cell directly to skip the detail page and pick a transition in place — Heimdall calls Jira's transition endpoint and refreshes the section. The **Assignee** cell behaves the same: tap it (or the assignee line on the detail page) to pop a picker of the project's assignable users, with an *(Unassigned)* row at the top; on tap, Heimdall calls Jira's assignee endpoint and refreshes the section.
 
@@ -99,7 +101,6 @@ The Inno Setup script lives at `installer/heimdall.iss`, tracked in the repo. Th
 
 - Window-position and size memory (`window_manager`).
 - Configurable auto-refresh interval.
-- Tests beyond the boot smoke test.
 - Pass `MyAppVersion` to ISCC on the command line so the Inno script need not be hand-edited each release.
 
 ## Issues
@@ -126,8 +127,10 @@ lib/
     vault.dart              credentials in secure storage
     filters.dart            filters in shared_preferences
     preferences.dart        view settings in shared_preferences
-    jira.dart               REST gateway (search/jql + issue + comments + transitions + assignee)
+    jira.dart               REST gateway (search/jql + issue + comments + transitions + assignee + autocomplete)
     adf.dart                Atlassian Document Format → Markdown
+    jql_autocompletion.dart model (field names + function names + reserved words)
+    jql_token.dart          cursor-aware "last token" extraction for JQL autocomplete
   ui/
     tickets_page.dart       main view
     ticket_detail_page.dart detail surface for a single ticket
