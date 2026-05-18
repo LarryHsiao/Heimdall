@@ -54,7 +54,7 @@ fvm flutter run -d macos     # or: -d windows
    - A **filter ID** (e.g. `10363`) — Heimdall wraps it as `filter = 10363`
    - A raw **JQL** expression (e.g. `assignee = currentUser() AND resolution = Unresolved`)
 
-   The JQL field offers field-and-keyword autocomplete: as you type, a chip row below the field suggests field names, function names, and reserved words drawn from Jira's `/jql/autocompletedata` endpoint. Tap a chip to replace the partial token at the cursor; if the autocomplete fetch fails (no network, no credentials), the chips simply do not render and the field still saves.
+   The JQL field offers context-aware autocomplete: a chip row appears below the field as you type. On the left of an operator (typing a field name) the chips draw from `/jql/autocompletedata` — visible fields, functions, and reserved words. On the right of `=`, `!=`, `<`, `>`, `~` and kin (typing a value), the chips come from `/jql/autocompletedata/suggestions?fieldName=…` and are scoped to the field at the cursor; value lookups debounce 300 ms so each keystroke does not hammer Jira. Tap a chip to replace the partial token at the cursor. If any fetch fails (no network, no credentials, unknown field), the chips simply do not render and the field still saves.
 4. Each filter becomes its own tab across the top. Tickets render in a sortable, resizable table (Type · Key · Summary · Pri · Assignee · Status). Sub-tasks indent under their parent in **Grouped** mode; **Flat** mode treats every row as its own line — toggle in the AppBar.
 5. Click most cells to open the ticket in the in-app **detail page** — header, status pill, type and priority chips, assignee/reporter/dates, and the description rendered as Markdown. A **Comments** pane to the right (or below, on a narrow window) lists existing comments and accepts new plain-text ones. The detail page bears its own *Open in browser* and *Refresh* actions, and the status pill there pops the same transition menu as the table. Click the table's **Status** cell directly to skip the detail page and pick a transition in place — Heimdall calls Jira's transition endpoint and refreshes the section. The **Assignee** cell behaves the same: tap it (or the assignee line on the detail page) to pop a picker of the project's assignable users, with an *(Unassigned)* row at the top; on tap, Heimdall calls Jira's assignee endpoint and refreshes the section.
 
@@ -129,10 +129,12 @@ lib/
     vault.dart              credentials in secure storage
     filters.dart            filters in shared_preferences
     preferences.dart        view settings in shared_preferences
-    jira.dart               REST gateway (search/jql + issue + comments + transitions + assignee + autocomplete)
+    jira.dart               REST gateway (search/jql + issue + comments + transitions + assignee + autocomplete + value suggestions)
     adf.dart                Atlassian Document Format → Markdown
     jql_autocompletion.dart model (field names + function names + reserved words)
     jql_token.dart          cursor-aware "last token" extraction for JQL autocomplete
+    jql_context.dart        field-name vs value context at the cursor
+    jql_value_suggestions.dart parser for /jql/autocompletedata/suggestions
   ui/
     tickets_page.dart       main view
     ticket_detail_page.dart detail surface for a single ticket

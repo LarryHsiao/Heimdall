@@ -12,6 +12,7 @@ import 'jira_ticket.dart';
 import 'jira_transition.dart';
 import 'jira_user.dart';
 import 'jql_autocompletion.dart';
+import 'jql_value_suggestions.dart';
 
 class Jira {
   final Dio _dio;
@@ -300,6 +301,26 @@ class Jira {
       options: Options(headers: {'Authorization': 'Basic $auth'}),
     );
     return JqlAutocompletion.fromJson(response.data ?? const {});
+  }
+
+  Future<List<String>> jqlValueSuggestions(
+    JiraCredentials credentials,
+    String fieldName,
+    String fieldValue,
+  ) async {
+    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
+    final response = await _dio.get<Map<String, dynamic>>(
+      '$base/rest/api/3/jql/autocompletedata/suggestions',
+      queryParameters: {
+        'fieldName': fieldName,
+        'fieldValue': fieldValue,
+      },
+      options: Options(headers: {'Authorization': 'Basic $auth'}),
+    );
+    return parseJqlValueSuggestions(response.data);
   }
 }
 

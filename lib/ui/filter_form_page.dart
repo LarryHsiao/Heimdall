@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/filters.dart';
 import '../data/jira.dart';
 import '../data/jira_filter.dart';
 import '../data/jql_autocompletion.dart';
-import '../data/jql_token.dart';
+import '../data/jql_context.dart';
 import '../data/vault.dart';
 
 class FilterFormPage extends StatefulWidget {
@@ -18,6 +20,7 @@ class FilterFormPage extends StatefulWidget {
 
 class _FilterFormPageState extends State<FilterFormPage> {
   static const int _maxSuggestions = 10;
+  static const Duration _valueDebounce = Duration(milliseconds: 300);
   static const JqlAutocompletion _emptyAutocompletion = JqlAutocompletion(
     fieldNames: [],
     functionNames: [],
@@ -32,6 +35,9 @@ class _FilterFormPageState extends State<FilterFormPage> {
   late final TextEditingController _queryController;
   bool _saving = false;
   JqlAutocompletion _autocompletion = _emptyAutocompletion;
+  final Map<String, List<String>> _valueCache = {};
+  Timer? _valueTimer;
+  String? _inflightValueKey;
 
   @override
   void initState() {
@@ -39,11 +45,14 @@ class _FilterFormPageState extends State<FilterFormPage> {
     _nameController = TextEditingController(text: widget.existing?.name ?? '');
     _queryController =
         TextEditingController(text: widget.existing?.query ?? '');
+    _queryController.addListener(_onQueryChanged);
     _loadAutocompletion();
   }
 
   @override
   void dispose() {
+    _valueTimer?.cancel();
+    _queryController.removeListener(_onQueryChanged);
     _nameController.dispose();
     _queryController.dispose();
     super.dispose();
@@ -60,6 +69,48 @@ class _FilterFormPageState extends State<FilterFormPage> {
       // Quiet failure — autocomplete is a nicety, not a requirement.
     }
   }
+
+  void _onQueryChanged() {
+    final selection = _queryController.selection;
+    if (!selection.isValid || selection.start != selection.end) {
+      _valueTimer?.cancel();
+      return;
+    }
+    final ctx = jqlContextAt(_queryController.text, selection.start);
+    if (!ctx.isValueContext) {
+      _valueTimer?.cancel();
+      return;
+    }
+    _valueTimer?.cancel();
+    _valueTimer = Timer(
+      _valueDebounce,
+      () => _fetchValueSuggestions(ctx.fieldName, ctx.partial),
+    );
+  }
+
+  Future<void> _fetchValueSuggestions(String field, String partial) async {
+    final key = _cacheKey(field, partial);
+    if (_valueCache.containsKey(key)) return;
+    final credentials = await _vault.read();
+    if (credentials == null) return;
+    _inflightValueKey = key;
+    try {
+      final results =
+          await _jira.jqlValueSuggestions(credentials, field, partial);
+      if (!mounted) return;
+      setState(() {
+        _valueCache[key] = results;
+      });
+    } catch (_) {
+      // Quiet failure.
+    } finally {
+      if (_inflightValueKey == key) {
+        _inflightValueKey = null;
+      }
+    }
+  }
+
+  String _cacheKey(String field, String partial) => '$field|$partial';
 
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
@@ -88,13 +139,12 @@ class _FilterFormPageState extends State<FilterFormPage> {
     return null;
   }
 
-  void _insertSuggestion(String suggestion) {
+  void _insertSuggestion(String suggestion, String partial) {
     final selection = _queryController.selection;
     if (!selection.isValid) return;
     final cursor = selection.start;
     final text = _queryController.text;
-    final token = lastTokenAt(text, cursor);
-    final prefix = text.substring(0, cursor - token.length);
+    final prefix = text.substring(0, cursor - partial.length);
     final suffix = text.substring(cursor);
     final newCursor = (prefix + suggestion).length;
     _queryController.value = TextEditingValue(
@@ -103,14 +153,24 @@ class _FilterFormPageState extends State<FilterFormPage> {
     );
   }
 
-  List<String> _matchesFor(String token) {
-    if (token.isEmpty) return const [];
-    final lower = token.toLowerCase();
+  List<String> _fieldMatchesFor(String partial) {
+    if (partial.isEmpty) return const [];
+    final lower = partial.toLowerCase();
     return _autocompletion.suggestions
         .where((s) {
           final v = s.toLowerCase();
           return v.startsWith(lower) && v != lower;
         })
+        .take(_maxSuggestions)
+        .toList();
+  }
+
+  List<String> _valueMatchesFor(String field, String partial) {
+    final cached = _valueCache[_cacheKey(field, partial)];
+    if (cached == null) return const [];
+    final lower = partial.toLowerCase();
+    return cached
+        .where((s) => s.toLowerCase() != lower)
         .take(_maxSuggestions)
         .toList();
   }
@@ -123,8 +183,10 @@ class _FilterFormPageState extends State<FilterFormPage> {
         if (!selection.isValid || selection.start != selection.end) {
           return const SizedBox.shrink();
         }
-        final token = lastTokenAt(_queryController.text, selection.start);
-        final matches = _matchesFor(token);
+        final ctx = jqlContextAt(_queryController.text, selection.start);
+        final matches = ctx.isValueContext
+            ? _valueMatchesFor(ctx.fieldName, ctx.partial)
+            : _fieldMatchesFor(ctx.partial);
         if (matches.isEmpty) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -135,7 +197,7 @@ class _FilterFormPageState extends State<FilterFormPage> {
               for (final m in matches)
                 ActionChip(
                   label: Text(m),
-                  onPressed: () => _insertSuggestion(m),
+                  onPressed: () => _insertSuggestion(m, ctx.partial),
                 ),
             ],
           ),
