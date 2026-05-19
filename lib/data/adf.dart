@@ -195,7 +195,9 @@ class AdfMarkdown {
       case 'hardBreak':
         return '  \n';
       case 'mention':
-        return '@${(_attrs(node)['text'] as String?) ?? ''}';
+        final raw = (_attrs(node)['text'] as String?)?.trim() ?? '';
+        final label = raw.isEmpty ? '@user' : raw;
+        return '**$label**';
       case 'emoji':
         return (_attrs(node)['text'] as String?) ??
             (_attrs(node)['shortName'] as String?) ??

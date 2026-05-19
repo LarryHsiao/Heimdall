@@ -13,6 +13,7 @@ import 'jira_transition.dart';
 import 'jira_user.dart';
 import 'jql_autocompletion.dart';
 import 'jql_value_suggestions.dart';
+import 'mentioned_comment.dart';
 
 class Jira {
   final Dio _dio;
@@ -136,7 +137,7 @@ class Jira {
 
   Future<JiraComment> postComment(
     JiraTicket ticket,
-    String text,
+    MentionedComment comment,
     JiraCredentials credentials,
   ) async {
     final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
@@ -145,7 +146,7 @@ class Jira {
     );
     final response = await _dio.post<Map<String, dynamic>>(
       '$base/rest/api/3/issue/${ticket.key}/comment',
-      data: {'body': _adfFromPlain(text)},
+      data: {'body': comment.adfDoc()},
       options: Options(headers: {'Authorization': 'Basic $auth'}),
     );
     return _commentOf(response.data ?? const <String, dynamic>{});
@@ -161,28 +162,6 @@ class Jira {
       updated: (map['updated'] as String?) ?? '',
       body: map['body'] as Map<String, dynamic>?,
     );
-  }
-
-  Map<String, dynamic> _adfFromPlain(String text) {
-    final lines = text.split('\n');
-    final paragraphs = <Map<String, dynamic>>[];
-    for (final line in lines) {
-      if (line.isEmpty) {
-        paragraphs.add({'type': 'paragraph'});
-      } else {
-        paragraphs.add({
-          'type': 'paragraph',
-          'content': [
-            {'type': 'text', 'text': line}
-          ],
-        });
-      }
-    }
-    return {
-      'type': 'doc',
-      'version': 1,
-      'content': paragraphs,
-    };
   }
 
   Future<List<JiraTransition>> transitions(
@@ -246,6 +225,27 @@ class Jira {
         if (query.isNotEmpty) 'query': query,
         'maxResults': 50,
       },
+      options: Options(headers: {'Authorization': 'Basic $auth'}),
+    );
+    final list = response.data ?? const [];
+    return [
+      for (final u in list)
+        if (u is Map<String, dynamic>) JiraUser.fromJson(u),
+    ];
+  }
+
+  Future<List<JiraUser>> searchUsers(
+    String query,
+    JiraCredentials credentials,
+  ) async {
+    if (query.trim().isEmpty) return const [];
+    final base = credentials.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final auth = base64Encode(
+      utf8.encode('${credentials.email}:${credentials.apiToken}'),
+    );
+    final response = await _dio.get<List<dynamic>>(
+      '$base/rest/api/3/user/search',
+      queryParameters: {'query': query, 'maxResults': 20},
       options: Options(headers: {'Authorization': 'Basic $auth'}),
     );
     final list = response.data ?? const [];

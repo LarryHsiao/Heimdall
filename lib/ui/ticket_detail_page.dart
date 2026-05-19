@@ -12,7 +12,9 @@ import '../data/jira_issue_link.dart';
 import '../data/jira_ticket.dart';
 import '../data/jira_transition.dart';
 import '../data/jira_user.dart';
+import '../data/mentioned_comment.dart';
 import 'assignee_picker.dart';
+import 'mention_field.dart';
 import 'status_chip.dart';
 import 'ticket_chrome.dart';
 
@@ -27,7 +29,8 @@ class TicketDetailPage extends StatefulWidget {
   final Future<List<JiraTransition>> Function() onLoadTransitions;
   final Future<void> Function(JiraTransition) onApplyTransition;
   final Future<List<JiraComment>> Function() onLoadComments;
-  final Future<JiraComment> Function(String) onPostComment;
+  final Future<JiraComment> Function(MentionedComment) onPostComment;
+  final Future<List<JiraUser>> Function(String query) onSearchUsers;
   final void Function(JiraTicket)? onOpenTicket;
   final Future<void> Function(Map<String, dynamic>)? onUpdateDescription;
   final Future<List<JiraUser>> Function(String query)? onLoadAssignableUsers;
@@ -43,6 +46,7 @@ class TicketDetailPage extends StatefulWidget {
     required this.onApplyTransition,
     required this.onLoadComments,
     required this.onPostComment,
+    required this.onSearchUsers,
     this.onOpenTicket,
     this.onUpdateDescription,
     this.onLoadAssignableUsers,
@@ -65,7 +69,6 @@ class _TicketDetailPageState extends State<TicketDetailPage>
   bool _posting = false;
 
   late JiraTicket _ticket;
-  final TextEditingController _input = TextEditingController();
   Timer? _poll;
   int _checkboxIndex = 0;
   bool _savingTask = false;
@@ -84,7 +87,6 @@ class _TicketDetailPageState extends State<TicketDetailPage>
   void dispose() {
     _stopPolling();
     WidgetsBinding.instance.removeObserver(this);
-    _input.dispose();
     super.dispose();
   }
 
@@ -177,23 +179,22 @@ class _TicketDetailPageState extends State<TicketDetailPage>
     }
   }
 
-  Future<void> _post() async {
-    final text = _input.text.trim();
-    if (text.isEmpty || _posting) return;
+  Future<void> _onSubmitComment(MentionedComment comment) async {
+    if (_posting) return;
     setState(() => _posting = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final added = await widget.onPostComment(text);
+      final added = await widget.onPostComment(comment);
       if (!mounted) return;
       setState(() {
         _comments = [..._comments, added];
         _posting = false;
       });
-      _input.clear();
     } catch (e) {
       if (!mounted) return;
       setState(() => _posting = false);
       messenger.showSnackBar(SnackBar(content: Text('Post failed: $e')));
+      rethrow;
     }
   }
 
@@ -450,44 +451,11 @@ class _TicketDetailPageState extends State<TicketDetailPage>
   }
 
   Widget _commentInput() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _input,
-            minLines: 1,
-            maxLines: 4,
-            enabled: !_posting,
-            decoration: const InputDecoration(
-              hintText: 'Add a comment',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        _posting ? _postingSpinner() : _sendButton(),
-      ],
-    );
-  }
-
-  Widget _postingSpinner() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8),
-      child: SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
-    );
-  }
-
-  Widget _sendButton() {
-    return IconButton(
-      tooltip: 'Send',
-      onPressed: _post,
-      icon: const Icon(Icons.send),
+    return MentionField(
+      enabled: !_posting,
+      hintText: 'Add a comment',
+      onSearchUsers: widget.onSearchUsers,
+      onSubmit: _onSubmitComment,
     );
   }
 

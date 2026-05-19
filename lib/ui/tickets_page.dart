@@ -265,8 +265,9 @@ class _TicketsPageState extends State<TicketsPage>
           onLoadTransitions: () => _loadTransitions(ticket),
           onApplyTransition: (tr) => _applyTransition(ticket, tr),
           onLoadComments: () => _jira.comments(ticket, credentials),
-          onPostComment: (text) =>
-              _jira.postComment(ticket, text, credentials),
+          onPostComment: (comment) =>
+              _jira.postComment(ticket, comment, credentials),
+          onSearchUsers: (q) => _jira.searchUsers(q, credentials),
           onOpenTicket: (t) => _openDetail(credentials, t),
           onUpdateDescription: (desc) =>
               _jira.updateDescription(ticket, desc, credentials),

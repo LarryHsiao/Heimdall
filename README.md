@@ -69,7 +69,7 @@ fvm flutter run -d macos     # or: -d windows
 - **Mode toggle** — Grouped (default) or Flat, in the AppBar; persists across launches.
 - **Auto-refresh** — the active tab's section reloads every 60 s while the window is focused; pauses when blurred or hidden. Other tabs hold until you click Refresh or rotate to them.
 - **Detail page** — row click opens it; description ADF is converted to Markdown and rendered with `flutter_markdown_plus`. Inline task lists (ADF `taskList`) render as GFM checkboxes — tap to flip TODO/DONE; the change PUTs the modified description back to Jira and the local view updates optimistically.
-- **Comments pane** — read existing comments, post new plain-text ones; lives at the right of the detail page on wide windows, below the description on narrow ones. Auto-refreshes every 30 s while the window is focused; pauses when blurred or hidden.
+- **Comments pane** — read existing comments, post new ones; lives at the right of the detail page on wide windows, below the description on narrow ones. Auto-refreshes every 30 s while the window is focused; pauses when blurred or hidden. Type `@` to mention a user — a popup lists matches from `/rest/api/3/user/search` as you type; arrow keys move the highlight, Enter or click commits the mention. Tagged users receive Jira's standard mention notification.
 - **Attachments** — image attachments render as a thumbnail wrap below the description; tap to open full size in a zoomable dialog. Non-image attachments appear as filename chips that open the file URL in the browser. Read-only — uploads, renames, and deletes stay in the web UI.
 - **Sub-tasks & Links** — sub-tasks list below the description; issue links group by their directional label (`blocks`, `is blocked by`, `relates to`, …). Each row carries type icon · key · summary · status; tap opens that ticket's own detail page on top of the navigation stack.
 - **Hidden sub-tasks indicator** — when a filter or search elides a parent's sub-tasks from the table, a small icon marks the parent row; tap to expand the elided children inline, indented under the parent and dimmed to mark them as filter-elided. Tap again to collapse.
@@ -86,7 +86,7 @@ fvm flutter run -d macos     # or: -d windows
 
 - Tray residency, menu-bar icon, background polling.
 - Writes beyond status transitions, assignee changes, plain-text comments, and task-list ticks — summary edits, field edits, attachments, links — stay in the web UI.
-- Comment editing, deletion, threading, mentions, rich formatting — comments are post-only and plain text.
+- Comment editing, deletion, threading, rich formatting — comments are post-only and plain text apart from `@`-mentions.
 - Boards, sprints, admin, full-text search.
 - Default filters shipped with the app — every filter is user-added.
 
@@ -129,18 +129,21 @@ lib/
     vault.dart              credentials in secure storage
     filters.dart            filters in shared_preferences
     preferences.dart        view settings in shared_preferences
-    jira.dart               REST gateway (search/jql + issue + comments + transitions + assignee + autocomplete + value suggestions)
+    jira.dart               REST gateway (search/jql + issue + comments + transitions + assignee + user search + autocomplete + value suggestions)
     adf.dart                Atlassian Document Format → Markdown
     jql_autocompletion.dart model (field names + function names + reserved words)
     jql_token.dart          cursor-aware "last token" extraction for JQL autocomplete
     jql_context.dart        field-name vs value context at the cursor
     jql_value_suggestions.dart parser for /jql/autocompletedata/suggestions
+    mention_range.dart      value type (accountId + displayName + start + length)
+    mentioned_comment.dart  comment seam (PlainComment + MentionedText → ADF)
   ui/
     tickets_page.dart       main view
     ticket_detail_page.dart detail surface for a single ticket
     ticket_chrome.dart      type / priority icon mappings
     status_chip.dart        shared status pill widget
     assignee_picker.dart    dialog: search assignable users, tap to pick
+    mention_field.dart      composer with @-mention overlay, sidecar map, atom-delete
     settings_page.dart      credentials form
     filters_page.dart       filter list management
     filter_form_page.dart   add / edit a filter
