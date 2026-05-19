@@ -103,6 +103,13 @@ if [ -z "$IDENTITY" ]; then
 fi
 echo "==> Signing identity: $IDENTITY"
 
+TEAM_ID=$(echo "$IDENTITY" | sed -nE 's/.*\(([A-Z0-9]{10})\)$/\1/p')
+if [ -z "$TEAM_ID" ]; then
+  echo "error: could not extract team id from identity '$IDENTITY'" >&2
+  exit 1
+fi
+echo "==> Team identifier: $TEAM_ID"
+
 echo "==> Resolving Flutter dependencies"
 $FLUTTER_BIN pub get
 
@@ -115,10 +122,27 @@ if [ ! -d "$APP_PATH" ]; then
   exit 1
 fi
 
+PROFILE_SRC="macos/Runner/embedded.provisionprofile"
+if [ ! -f "$PROFILE_SRC" ]; then
+  echo "error: provisioning profile not found at $PROFILE_SRC" >&2
+  exit 1
+fi
+echo "==> Embedding provisioning profile"
+cp "$PROFILE_SRC" "$APP_PATH/Contents/embedded.provisionprofile"
+
+ENTITLEMENTS_SRC="macos/Runner/Release.entitlements"
+if [ ! -f "$ENTITLEMENTS_SRC" ]; then
+  echo "error: entitlements not found at $ENTITLEMENTS_SRC" >&2
+  exit 1
+fi
+ENTITLEMENTS_RESOLVED="$WORK_DIR/Release.entitlements"
+sed "s/\$(AppIdentifierPrefix)/${TEAM_ID}./g" "$ENTITLEMENTS_SRC" > "$ENTITLEMENTS_RESOLVED"
+
 echo "==> Code-signing $APP_PATH"
 codesign --force --deep --verify --verbose \
   --options runtime \
   --timestamp \
+  --entitlements "$ENTITLEMENTS_RESOLVED" \
   --keychain "$KEYCHAIN_PATH" \
   --sign "$IDENTITY" \
   "$APP_PATH"
