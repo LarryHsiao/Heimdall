@@ -54,3 +54,8 @@ app.*.map.json
 # This file carries a base64 Developer ID .p12 and an App Store Connect
 # .p8 private key — never commit it.
 macos_ci_secrets.env
+
+# Windows code-signing certificate, decoded at build time from a TeamCity
+# password parameter. May briefly land in the workspace during signing —
+# never commit it.
+windows-codesign.pfx
