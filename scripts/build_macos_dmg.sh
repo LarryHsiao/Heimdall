@@ -106,7 +106,7 @@ echo "==> Signing identity: $IDENTITY_NAME ($IDENTITY_HASH)"
 
 TEAM_ID=$(echo "$IDENTITY_NAME" | sed -nE 's/.*\(([A-Z0-9]{10})\)$/\1/p')
 if [ -z "$TEAM_ID" ]; then
-  echo "error: could not extract team id from identity '$IDENTITY'" >&2
+  echo "error: could not extract team id from identity '$IDENTITY_NAME'" >&2
   exit 1
 fi
 echo "==> Team identifier: $TEAM_ID"
