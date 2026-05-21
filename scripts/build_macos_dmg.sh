@@ -93,17 +93,18 @@ security set-key-partition-list \
 USER_KEYCHAINS=$(security list-keychains -d user | tr -d '"' | xargs)
 security list-keychains -d user -s "$KEYCHAIN_PATH" $USER_KEYCHAINS
 
-IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
+IDENTITY_LINE=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
   | grep "Developer ID Application" \
-  | head -1 \
-  | awk -F'"' '{print $2}')
-if [ -z "$IDENTITY" ]; then
+  | head -1)
+IDENTITY_HASH=$(echo "$IDENTITY_LINE" | awk '{print $2}')
+IDENTITY_NAME=$(echo "$IDENTITY_LINE" | awk -F'"' '{print $2}')
+if [ -z "$IDENTITY_HASH" ]; then
   echo "error: no Developer ID Application identity found in the build keychain" >&2
   exit 1
 fi
-echo "==> Signing identity: $IDENTITY"
+echo "==> Signing identity: $IDENTITY_NAME ($IDENTITY_HASH)"
 
-TEAM_ID=$(echo "$IDENTITY" | sed -nE 's/.*\(([A-Z0-9]{10})\)$/\1/p')
+TEAM_ID=$(echo "$IDENTITY_NAME" | sed -nE 's/.*\(([A-Z0-9]{10})\)$/\1/p')
 if [ -z "$TEAM_ID" ]; then
   echo "error: could not extract team id from identity '$IDENTITY'" >&2
   exit 1
@@ -144,7 +145,7 @@ codesign --force --deep --verify --verbose \
   --timestamp \
   --entitlements "$ENTITLEMENTS_RESOLVED" \
   --keychain "$KEYCHAIN_PATH" \
-  --sign "$IDENTITY" \
+  --sign "$IDENTITY_HASH" \
   "$APP_PATH"
 
 echo "==> Verifying app signature"
@@ -169,7 +170,7 @@ hdiutil create \
 echo "==> Code-signing $DMG_PATH"
 codesign --force --timestamp \
   --keychain "$KEYCHAIN_PATH" \
-  --sign "$IDENTITY" \
+  --sign "$IDENTITY_HASH" \
   "$DMG_PATH"
 
 echo "==> Submitting to Apple notary service (this can take several minutes)"
