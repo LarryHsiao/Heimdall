@@ -18,7 +18,7 @@
 param([Parameter(Mandatory=$true)][string]$Branch)
 $ErrorActionPreference = 'Stop'
 
-if ($Branch -notmatch '^refs/tags/v') {
+if ($Branch -notmatch '^(refs/tags/)?v\d') {
   Write-Host "Not a tag build (branch=$Branch); skipping release"
   exit 0
 }
