@@ -4,7 +4,7 @@
 ; Output lands in build\installer\.
 
 #define MyAppName        "Heimdall"
-#define MyAppVersion     "1.4.8"
+#define MyAppVersion     "1.4.9"
 #define MyAppPublisher   "Larry Hsiao"
 #define MyAppURL         "https://github.com/LarryHsiao/Heimdall"
 #define MyAppExeName     "heimdall.exe"
