@@ -15,6 +15,7 @@ import '../data/jira_user.dart';
 import '../data/mentioned_comment.dart';
 import 'assignee_picker.dart';
 import 'mention_field.dart';
+import 'relative_date.dart';
 import 'status_chip.dart';
 import 'ticket_chrome.dart';
 
@@ -428,7 +429,7 @@ class _TicketDetailPageState extends State<TicketDetailPage>
           ),
         ),
         Text(
-          _date(c.created),
+          relativeDate(c.created),
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.outline,
           ),
@@ -571,8 +572,8 @@ class _TicketDetailPageState extends State<TicketDetailPage>
     final theme = Theme.of(context);
     final issue = _issue;
     final reporter = issue?.reporter ?? '';
-    final created = _date(issue?.created);
-    final updated = _date(issue?.updated);
+    final created = relativeDate(issue?.created);
+    final updated = relativeDate(issue?.updated);
     return DefaultTextStyle.merge(
       style: theme.textTheme.bodyMedium ?? const TextStyle(),
       child: Column(
@@ -662,12 +663,6 @@ class _TicketDetailPageState extends State<TicketDetailPage>
         ],
       ),
     );
-  }
-
-  String _date(String? raw) {
-    if (raw == null || raw.isEmpty) return '';
-    final t = raw.indexOf('T');
-    return t > 0 ? raw.substring(0, t) : raw;
   }
 
   Widget _attachments(BuildContext context, List<JiraAttachment> all) {
