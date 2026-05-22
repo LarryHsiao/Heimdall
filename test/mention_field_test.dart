@@ -193,4 +193,83 @@ void main() {
       expect(submitted, isA<PlainComment>());
     });
   });
+
+  group('MentionField cmd+enter submit', () {
+    testWidgets('cmd+enter submits whitespace-only text without the empty guard',
+        (tester) async {
+      MentionedComment? submitted;
+
+      await tester.pumpWidget(_hostFor(
+        onSearchUsers: (_) async => const [],
+        onSubmit: (c) async {
+          submitted = c;
+        },
+      ));
+
+      await _typeInto(tester, '   ');
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      const expectedNode = {'type': 'text', 'text': '   '};
+      expect(submitted, isA<PlainComment>());
+      final adf = submitted!.adfDoc();
+      final paragraph =
+          (adf['content'] as List).first as Map<String, dynamic>;
+      final firstNode = (paragraph['content'] as List).first;
+      expect(firstNode, expectedNode);
+    });
+
+    testWidgets('ctrl+enter also submits, bypassing the empty guard',
+        (tester) async {
+      MentionedComment? submitted;
+
+      await tester.pumpWidget(_hostFor(
+        onSearchUsers: (_) async => const [],
+        onSubmit: (c) async {
+          submitted = c;
+        },
+      ));
+
+      await _typeInto(tester, '');
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      const expectedParagraph = {'type': 'paragraph'};
+      expect(submitted, isA<PlainComment>());
+      final adf = submitted!.adfDoc();
+      final paragraph =
+          (adf['content'] as List).first as Map<String, dynamic>;
+      expect(paragraph, expectedParagraph);
+    });
+
+    testWidgets('bare enter (no modifier) does not submit', (tester) async {
+      MentionedComment? submitted;
+
+      await tester.pumpWidget(_hostFor(
+        onSearchUsers: (_) async => const [],
+        onSubmit: (c) async {
+          submitted = c;
+        },
+      ));
+
+      await _typeInto(tester, 'hello');
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+
+      expect(submitted, isNull);
+    });
+  });
 }

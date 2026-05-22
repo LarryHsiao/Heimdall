@@ -112,9 +112,11 @@ class _MentionFieldState extends State<MentionField> {
     );
   }
 
-  Future<void> _submit() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
+  Future<void> _submit({bool skipEmptyCheck = false}) async {
+    if (!skipEmptyCheck) {
+      final text = _controller.text.trim();
+      if (text.isEmpty) return;
+    }
     setState(() => _submitting = true);
     try {
       final comment = _ranges.isEmpty
@@ -361,10 +363,23 @@ class _MentionFieldState extends State<MentionField> {
     if (_popup != null) {
       return _onOverlayKey(event);
     }
+    if (event.logicalKey == LogicalKeyboardKey.enter && _isSubmitModifierHeld()) {
+      if (!widget.enabled || _submitting) return KeyEventResult.ignored;
+      _submit(skipEmptyCheck: true);
+      return KeyEventResult.handled;
+    }
     if (event.logicalKey == LogicalKeyboardKey.backspace) {
       return _onBackspace();
     }
     return KeyEventResult.ignored;
+  }
+
+  bool _isSubmitModifierHeld() {
+    final keys = HardwareKeyboard.instance.logicalKeysPressed;
+    return keys.contains(LogicalKeyboardKey.metaLeft) ||
+        keys.contains(LogicalKeyboardKey.metaRight) ||
+        keys.contains(LogicalKeyboardKey.controlLeft) ||
+        keys.contains(LogicalKeyboardKey.controlRight);
   }
 
   KeyEventResult _onOverlayKey(KeyEvent event) {
