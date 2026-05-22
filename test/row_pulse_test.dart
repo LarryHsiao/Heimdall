@@ -279,7 +279,7 @@ void main() {
       final row = rowForKey(tester, 'HEI-1');
       final color = (row.decoration as BoxDecoration?)?.color;
       expect(color, isNotNull);
-      expect(color!.a, greaterThan(0.0));
+      expect(color!.a, greaterThan(0.5));
     });
 
     testWidgets('drops the tint past the fade window', (tester) async {
