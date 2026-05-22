@@ -264,6 +264,7 @@ void main() {
             matching: find.text(key),
           ).evaluate().isNotEmpty,
         ),
+        orElse: () => throw TestFailure('no row found for key $key'),
       );
     }
 
@@ -278,8 +279,10 @@ void main() {
 
       final row = rowForKey(tester, 'HEI-1');
       final color = (row.decoration as BoxDecoration?)?.color;
-      expect(color, isNotNull);
-      expect(color!.a, greaterThan(0.5));
+      final expectedColor = isNotNull;
+      expect(color, expectedColor);
+      final expectedAlpha = greaterThan(0.5);
+      expect(color!.a, expectedAlpha);
     });
 
     testWidgets('drops the tint past the fade window', (tester) async {
@@ -293,7 +296,8 @@ void main() {
 
       final row = rowForKey(tester, 'HEI-1');
       final color = (row.decoration as BoxDecoration?)?.color;
-      expect(color, isNull);
+      final expectedColor = isNull;
+      expect(color, expectedColor);
     });
 
     testWidgets('renders no pulse when the map is empty', (tester) async {
@@ -306,7 +310,8 @@ void main() {
 
       final row = rowForKey(tester, 'HEI-1');
       final color = (row.decoration as BoxDecoration?)?.color;
-      expect(color, isNull);
+      final expectedColor = isNull;
+      expect(color, expectedColor);
     });
   });
 }

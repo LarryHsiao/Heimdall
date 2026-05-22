@@ -774,6 +774,7 @@ class SectionViewState extends State<SectionView>
           _ticker?.stop();
           _ticker?.dispose();
           _ticker = null;
+          return;
         }
         if (mounted) setState(() {});
       });
