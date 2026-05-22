@@ -27,8 +27,7 @@ class TicketsPage extends StatefulWidget {
   State<TicketsPage> createState() => _TicketsPageState();
 }
 
-class _TicketsPageState extends State<TicketsPage>
-    with WidgetsBindingObserver {
+class _TicketsPageState extends State<TicketsPage> {
   static const Duration _pollInterval = Duration(seconds: 60);
 
   final Vault _vault = Vault();
@@ -51,7 +50,6 @@ class _TicketsPageState extends State<TicketsPage>
   void dispose() {
     _stopPolling();
     _detachTabListener();
-    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
   }
@@ -59,19 +57,7 @@ class _TicketsPageState extends State<TicketsPage>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _bootstrap();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Poll only while the window is in focus; every other state
-    // (inactive, paused, hidden, detached) pauses the timer.
-    if (state == AppLifecycleState.resumed) {
-      _startPolling();
-    } else {
-      _stopPolling();
-    }
   }
 
   Future<void> _bootstrap() async {
