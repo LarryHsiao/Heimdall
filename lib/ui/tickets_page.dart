@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../data/filters.dart';
 import '../data/jira.dart';
@@ -16,6 +17,7 @@ import '../data/view_settings.dart';
 import 'assignee_picker.dart';
 import 'filter_form_page.dart';
 import 'filters_page.dart';
+import 'row_pulse.dart';
 import 'settings_page.dart';
 import 'ticket_chrome.dart';
 import 'ticket_detail_page.dart';
@@ -45,6 +47,8 @@ class _TicketsPageState extends State<TicketsPage> {
   Timer? _poll;
   TabController? _trackedTabs;
   int _activeTabIndex = 0;
+  final Map<String, DateTime> _pulses = <String, DateTime>{};
+  bool _hasLoadedOnce = false;
 
   @override
   void dispose() {
@@ -114,6 +118,19 @@ class _TicketsPageState extends State<TicketsPage> {
     if (data == null) return;
     final idx = data.sections.indexWhere((s) => s.filter.id == filter.id);
     if (idx == -1) return;
+    if (_hasLoadedOnce) {
+      final previous = data.sections[idx].tickets;
+      final updated = nextPulses(
+        previous: previous,
+        current: tickets,
+        existing: _pulses,
+        now: DateTime.now(),
+        window: kPulseWindow,
+      );
+      _pulses
+        ..clear()
+        ..addAll(updated);
+    }
     final sections = [...data.sections];
     sections[idx] = FilterSection(filter: filter, tickets: tickets);
     _setSections(sections);
@@ -150,6 +167,7 @@ class _TicketsPageState extends State<TicketsPage> {
       setState(() {
         _data = data;
         _loading = false;
+        _hasLoadedOnce = true;
       });
     } catch (e) {
       if (!mounted) return;
@@ -437,6 +455,10 @@ class _TicketsPageState extends State<TicketsPage> {
                       child: SectionView(
                         section: s,
                         settings: _settings,
+                        pulses: {
+                          for (final t in s.tickets)
+                            if (_pulses.containsKey(t.key)) t.key: _pulses[t.key]!,
+                        },
                         onSort: _onSort,
                         onColumnWidthChange: _onColumnWidthChange,
                         onTicketTap: (t) =>
@@ -691,6 +713,7 @@ class _Empty extends StatelessWidget {
 class SectionView extends StatefulWidget {
   final FilterSection section;
   final ViewSettings settings;
+  final Map<String, DateTime> pulses;
   final void Function(SortColumn column, bool ascending) onSort;
   final void Function(SortColumn column, double width) onColumnWidthChange;
   final ValueChanged<JiraTicket> onTicketTap;
@@ -704,6 +727,7 @@ class SectionView extends StatefulWidget {
     super.key,
     required this.section,
     required this.settings,
+    this.pulses = const <String, DateTime>{},
     required this.onSort,
     required this.onColumnWidthChange,
     required this.onTicketTap,
@@ -717,9 +741,57 @@ class SectionView extends StatefulWidget {
   State<SectionView> createState() => SectionViewState();
 }
 
-class SectionViewState extends State<SectionView> {
+class SectionViewState extends State<SectionView>
+    with SingleTickerProviderStateMixin {
   String? _hoveredKey;
   final Set<String> _expanded = <String>{};
+  Ticker? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(SectionView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncTicker();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.dispose();
+    _ticker = null;
+    super.dispose();
+  }
+
+  void _syncTicker() {
+    final hasLive = _hasLivePulse();
+    if (hasLive && _ticker == null) {
+      _ticker = createTicker((_) {
+        if (!_hasLivePulse()) {
+          _ticker?.stop();
+          _ticker?.dispose();
+          _ticker = null;
+        }
+        if (mounted) setState(() {});
+      });
+      _ticker!.start();
+    } else if (!hasLive && _ticker != null) {
+      _ticker!.stop();
+      _ticker!.dispose();
+      _ticker = null;
+    }
+  }
+
+  bool _hasLivePulse() {
+    final now = DateTime.now();
+    for (final at in widget.pulses.values) {
+      if (now.difference(at) < kPulseWindow) return true;
+    }
+    return false;
+  }
 
   FilterSection get section => widget.section;
   ViewSettings get settings => widget.settings;
@@ -1047,9 +1119,16 @@ class SectionViewState extends State<SectionView> {
     final hovered = _hoveredKey == t.key;
     Widget dim(Widget w) =>
         row.filterElided ? Opacity(opacity: 0.55, child: w) : w;
+    final swatch = theme.colorScheme.surfaceContainerHigh;
+    final pulseAt = widget.pulses[t.key];
+    final alpha = pulseAt == null
+        ? 0.0
+        : pulseAlpha(at: pulseAt, now: DateTime.now(), window: kPulseWindow);
+    final showColor = hovered || alpha > 0;
+    final effectiveAlpha = hovered ? 1.0 : alpha;
     return TableRow(
       decoration: BoxDecoration(
-        color: hovered ? theme.colorScheme.surfaceContainerHigh : null,
+        color: showColor ? swatch.withValues(alpha: effectiveAlpha) : null,
       ),
       children: [
         _bodyCell(t, dim(_typeCell(row))),

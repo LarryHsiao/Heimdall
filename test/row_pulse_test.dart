@@ -1,6 +1,12 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:heimdall/data/jira_filter.dart';
 import 'package:heimdall/data/jira_ticket.dart';
+import 'package:heimdall/data/jira_transition.dart';
+import 'package:heimdall/data/jira_user.dart';
+import 'package:heimdall/data/view_settings.dart';
 import 'package:heimdall/ui/row_pulse.dart';
+import 'package:heimdall/ui/tickets_page.dart';
 
 JiraTicket _ticket({
   required String key,
@@ -214,6 +220,93 @@ void main() {
       );
       final expected = {'HEI-1': now};
       expect(result, expected);
+    });
+  });
+
+  group('SectionView pulse rendering', () {
+    Future<void> pumpSection(
+      WidgetTester tester, {
+      required List<JiraTicket> tickets,
+      required Map<String, DateTime> pulses,
+    }) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SectionView(
+              section: FilterSection(
+                filter:
+                    const JiraFilter(id: 'f1', name: 'F', query: 'jql'),
+                tickets: tickets,
+              ),
+              settings: const ViewSettings(),
+              pulses: pulses,
+              onSort: (_, _) {},
+              onColumnWidthChange: (_, _) {},
+              onTicketTap: (_) {},
+              onLoadTransitions: (_) async => const <JiraTransition>[],
+              onApplyTransition: (_, _) async {},
+              onLoadAssignableUsers: (_, _) async => const <JiraUser>[],
+              onApplyAssignee: (_, _) async {},
+            ),
+          ),
+        ),
+      );
+    }
+
+    TableRow rowForKey(WidgetTester tester, String key) {
+      final table = tester.widget<Table>(find.byType(Table));
+      return table.children.firstWhere(
+        (row) => row.children.any(
+          (cell) => find.descendant(
+            of: find.byWidget(cell),
+            matching: find.text(key),
+          ).evaluate().isNotEmpty,
+        ),
+      );
+    }
+
+    testWidgets('tints a row whose key has a fresh pulse', (tester) async {
+      final now = DateTime.now();
+      final tickets = [_ticket(key: 'HEI-1'), _ticket(key: 'HEI-2')];
+      await pumpSection(
+        tester,
+        tickets: tickets,
+        pulses: {'HEI-1': now},
+      );
+
+      final row = rowForKey(tester, 'HEI-1');
+      final color = (row.decoration as BoxDecoration?)?.color;
+      expect(color, isNotNull);
+      expect(color!.a, greaterThan(0.0));
+    });
+
+    testWidgets('drops the tint past the fade window', (tester) async {
+      final now = DateTime.now();
+      final tickets = [_ticket(key: 'HEI-1')];
+      await pumpSection(
+        tester,
+        tickets: tickets,
+        pulses: {'HEI-1': now.subtract(const Duration(seconds: 3))},
+      );
+
+      final row = rowForKey(tester, 'HEI-1');
+      final color = (row.decoration as BoxDecoration?)?.color;
+      expect(color, isNull);
+    });
+
+    testWidgets('renders no pulse when the map is empty', (tester) async {
+      final tickets = [_ticket(key: 'HEI-1')];
+      await pumpSection(
+        tester,
+        tickets: tickets,
+        pulses: const <String, DateTime>{},
+      );
+
+      final row = rowForKey(tester, 'HEI-1');
+      final color = (row.decoration as BoxDecoration?)?.color;
+      expect(color, isNull);
     });
   });
 }
