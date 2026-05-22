@@ -1,6 +1,6 @@
 import '../data/jira_ticket.dart';
 
-const Duration kPulseWindow = Duration(seconds: 10);
+const Duration kPulseWindow = Duration(seconds: 5);
 const Duration _purgeSlack = Duration(milliseconds: 500);
 
 bool ticketChanged(JiraTicket previous, JiraTicket current) =>

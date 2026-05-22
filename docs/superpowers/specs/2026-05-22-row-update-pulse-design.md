@@ -6,7 +6,7 @@
 
 ## Summary
 
-When the 60-second poll surfaces a ticket whose visible fields have changed, or a ticket that was not in the filter on the previous tick, the row tints — a soft pulse using the same swatch as the row's hover tint (`theme.colorScheme.surfaceContainerHigh`), which fades to transparent over about ten seconds. Motion is the signal, not colour: a hard appearance, a steady decay. Removals stay silent: a row that falls out of the filter simply vanishes, no farewell pulse. The pulse is long enough that a user glancing back at the window after a moment can still catch it, but it does not linger — once the fade completes, the list returns to rest.
+When the 60-second poll surfaces a ticket whose visible fields have changed, or a ticket that was not in the filter on the previous tick, the row tints — a soft pulse using the same swatch as the row's hover tint (`theme.colorScheme.surfaceContainerHigh`), which fades to transparent over about five seconds. Motion is the signal, not colour: a hard appearance, a steady decay. Removals stay silent: a row that falls out of the filter simply vanishes, no farewell pulse. The pulse is long enough that a user glancing back at the window after a moment can still catch it, but it does not linger — once the fade completes, the list returns to rest.
 
 Plain background restoration is the default state. Pulses fire only on subsequent polls — never on the very first load, where every row is technically "new" and the whole list would otherwise flash on startup.
 
@@ -14,7 +14,7 @@ Plain background restoration is the default state. Pulses fire only on subsequen
 
 1. **Trigger granularity** — any visible field change, plus new arrivals, get a pulse. Status, assignee, summary, priority, parent, and issue-type are the watched fields; anything else the list never shows, so a change there must not pulse.
 2. **One swatch** — `theme.colorScheme.surfaceContainerHigh`, the same colour as the existing row hover tint. Motion-as-signal: the eye catches the appearance and the decay, not a colour shift. *Changed* and *arrived* pulse identically — both diff branches write the same kind of mark. No hard-coded hex; the swatch comes from the active scheme, so light and dark themes both pick the right value. When a row is both hovered and pulsing, the hover tint already paints the same colour, so the pulse adds nothing visible on top — accepted: hover already signals attention, doubling is redundant.
-3. **Duration** — peak on poll arrival, linear fade to fully transparent over 10 000 ms. Long enough that the user catches it on a delayed glance back at the window, short enough that the list returns to rest before the next poll fires.
+3. **Duration** — peak on poll arrival, linear fade to fully transparent over 5 000 ms. Long enough that the user catches it on a delayed glance back at the window, short enough that the list returns to rest well before the next poll fires.
 4. **Removals are silent** — a row that fell out of the filter just disappears. Retaining a transient row for a farewell pulse is overscoped.
 5. **Initial bootstrap suppressed** — the first `_doLoad()` call seeds the previous-state baseline but emits no pulses. Pulses fire only on subsequent `_pollActiveSection()` and `_doLoad()` ticks.
 6. **Page-level diff** — the diff lives in `_TicketsPageState`, at `_patchSection`. The row widget is dumb: it receives the section's pulse map and computes per-row alpha from `DateTime.now()`.
@@ -34,7 +34,7 @@ A single `Map<String, DateTime> _pulses` lives on `_TicketsPageState`, keyed by 
    - Previous list had an entry, and any watched field differs → pulse (changed).
    - Otherwise → no pulse; if a stale entry exists in the map, leave it (its tween will fade on its own).
 3. Write `DateTime.now()` into the map for each key that should pulse.
-4. After writing, purge entries whose value is older than the fade duration (10 s) plus a small slack — keeps the map bounded.
+4. After writing, purge entries whose value is older than the fade duration (5 s) plus a small slack — keeps the map bounded.
 5. Skip steps 1–4 if the page has not yet completed its first load — that is the bootstrap path, and pulses are suppressed.
 
 `JiraTicket` (in `lib/data/jira_ticket.dart`) bears no `==`/`hashCode` override, so reference equality is the default and useless for this purpose. The diff is therefore a field-by-field comparison via a single private helper, the watched set named in one place:
@@ -62,7 +62,7 @@ bool _ticketChanged(JiraTicket previous, JiraTicket current) =>
 final Map<String, DateTime> pulses;
 ```
 
-The page passes the filtered-to-this-section subset on each rebuild. `SectionViewState` mixes in `SingleTickerProviderStateMixin` and owns a `Ticker` created once in `initState`, started and stopped by `_syncTicker` as live pulses come and go. The ticker drives `setState` while any pulse in `pulses` is still within its 10-second fade window; when all pulses decay it stops, ready to start again on the next change.
+The page passes the filtered-to-this-section subset on each rebuild. `SectionViewState` mixes in `SingleTickerProviderStateMixin` and owns a `Ticker` created once in `initState`, started and stopped by `_syncTicker` as live pulses come and go. The ticker drives `setState` while any pulse in `pulses` is still within its 5-second fade window; when all pulses decay it stops, ready to start again on the next change.
 
 Per-row pulse alpha is computed in `_bodyRow` from `DateTime.now().difference(pulseAt)` against the fade duration, yielding a value in `[0.0, 1.0]` that decays linearly. The `TableRow.decoration.color` becomes:
 
