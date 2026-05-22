@@ -86,13 +86,12 @@ The map is purged after every write — entries with `at < now - 2.5 s` are drop
 
 ## Testing
 
-A widget test under `test/row_pulse_test.dart` exercises three branches:
+Two layers cover the spec's branches:
 
-1. **Arrival** — render `_TicketsPage` with a stub `Jira` that returns one ticket on first load and a second ticket on the next poll. Pump past the poll interval, then verify the new row's `TableRow.decoration.color` at `t = 0` carries `surfaceContainerHigh` at full alpha and at `t = 2 s` is back to null (or `surfaceContainerHigh` only if hovered).
-2. **Change** — same setup, but the second poll returns the same key with a different `statusName`. Verify the same alpha trajectory.
-3. **Bootstrap silence** — first load returns three tickets. Verify no row carries any pulse tint at `t = 0`.
+1. **Pure helpers** (`test/row_pulse_test.dart` unit tests over `lib/ui/row_pulse.dart`) — `ticketChanged` covers each watched field; `pulseAlpha` covers the linear decay at boundary and midpoint; `nextPulses` covers arrival, change, no-op, hygiene, and a stale-entry overwrite. The bootstrap-silence branch is covered by the empty-`previous` calls.
+2. **Widget tests** (`test/row_pulse_test.dart` widget tests pumping `SectionView`) — verify that a fresh pulse paints `surfaceContainerHigh` at a clearly-pulsed alpha (`> 0.5`) on the row's `TableRow.decoration.color`, that a pulse past the fade window paints `null`, and that an empty pulse map paints `null`.
 
-Time is driven by `tester.pump(Duration)` against `_pollInterval` and the fade window; no wall-clock waits. The Jira stub follows the existing `data/jira.dart` test idiom — Dio swapped for a mock.
+The end-to-end "poll fires → row pulses" wiring inside `_TicketsPageState` is verified by a manual app run. `TicketsPage` constructs its own `Jira` / `Vault` / `Filters` / `Preferences` and has no injection seam; adding one is overscoped for this change.
 
 ## Out of scope
 
