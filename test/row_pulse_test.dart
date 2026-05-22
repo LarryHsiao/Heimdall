@@ -291,7 +291,7 @@ void main() {
       await pumpSection(
         tester,
         tickets: tickets,
-        pulses: {'HEI-1': now.subtract(const Duration(seconds: 3))},
+        pulses: {'HEI-1': now.subtract(const Duration(seconds: 15))},
       );
 
       final row = rowForKey(tester, 'HEI-1');
