@@ -52,6 +52,38 @@ class _FiltersPageState extends State<FiltersPage> {
     _refresh();
   }
 
+  Future<void> _confirmDelete(JiraFilter filter) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _deleteDialog(ctx, filter),
+    );
+    if (confirmed == true) {
+      await _delete(filter);
+    }
+  }
+
+  Widget _deleteDialog(BuildContext ctx, JiraFilter filter) {
+    final scheme = Theme.of(ctx).colorScheme;
+    return AlertDialog(
+      title: const Text('Delete filter?'),
+      content: Text('"${filter.name}" will be removed.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: scheme.error,
+            foregroundColor: scheme.onError,
+          ),
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: const Text('Delete'),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -85,7 +117,7 @@ class _FiltersPageState extends State<FiltersPage> {
       subtitle: Text(filter.query),
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline),
-        onPressed: () => _delete(filter),
+        onPressed: () => _confirmDelete(filter),
       ),
       onTap: () => _edit(filter),
     );
