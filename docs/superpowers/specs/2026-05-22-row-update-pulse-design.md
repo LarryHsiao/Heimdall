@@ -13,7 +13,7 @@ Plain background restoration is the default state. Pulses fire only on subsequen
 ## Decisions
 
 1. **Trigger granularity** — any visible field change, plus new arrivals, get a pulse. Status, assignee, summary, priority, parent, and issue-type are the watched fields; anything else the list never shows, so a change there must not pulse.
-2. **Two flavours** — yellow tint for *changed*, green tint for *arrived*. Drawn from the current `ColorScheme`'s container variants (`tertiaryContainer` for changed, `secondaryContainer` for arrived) so light and dark themes both behave; no hard-coded hex.
+2. **Two flavours** — a warm tint for *changed*, a cool tint for *arrived*. Drawn from the current `ColorScheme` with a brightness branch: in light mode, `tertiaryContainer` (changed) and `secondaryContainer` (arrived) — the softer container tones read clearly against bright surfaces. In dark mode, `tertiary` (changed) and `secondary` (arrived) — the bolder base hues, since the `*Container` variants sit too close to `surface` in Material 3's dark tone ramp to register on the eye. No hard-coded hex. With the current `Colors.indigo` seed, *changed* will render as a rose tint and *arrived* as a muted purple; the seed governs the hue, not the design — change the seed and the pulse follows.
 3. **Duration** — peak on poll arrival, linear fade to fully transparent over 2000 ms. Ephemeral by design — the user catches it on the glance.
 4. **Removals are silent** — a row that fell out of the filter just disappears. Retaining a transient row for a farewell pulse is overscoped.
 5. **Initial bootstrap suppressed** — the first `_doLoad()` call seeds the previous-state baseline but emits no pulses. Pulses fire only on subsequent `_pollActiveSection()` and `_doLoad()` ticks.
@@ -74,7 +74,7 @@ final Map<String, _PulseEvent> pulses;
 
 The page passes the filtered-to-this-section subset on each rebuild. `SectionViewState` mixes in `SingleTickerProviderStateMixin` and owns a `Ticker` that drives `setState` while any pulse in `pulses` is still within its 2-second fade window. When all pulses decay, the ticker stops. When a fresh pulse arrives (the page passes a non-empty map after an update), the ticker (re-)starts.
 
-Per-row pulse alpha is computed in `_bodyRow` from `DateTime.now().difference(pulse.at)` against the fade duration; the colour is taken from `theme.colorScheme.tertiaryContainer` (changed) or `secondaryContainer` (arrived), with its opacity scaled by `1.0 - elapsed / 2s`, clamped at zero. The `TableRow.decoration.color` then becomes:
+Per-row pulse alpha is computed in `_bodyRow` from `DateTime.now().difference(pulse.at)` against the fade duration. The colour is taken from the `ColorScheme` with the brightness branch named in Decision 2 — `tertiaryContainer` / `secondaryContainer` when `theme.brightness == Brightness.light`, and `tertiary` / `secondary` when it is dark. The chosen colour's opacity is then scaled by `1.0 - elapsed / 2s`, clamped at zero. The `TableRow.decoration.color` becomes:
 
 ```dart
 final base = hovered ? theme.colorScheme.surfaceContainerHigh : null;
