@@ -745,11 +745,12 @@ class SectionViewState extends State<SectionView>
     with SingleTickerProviderStateMixin {
   String? _hoveredKey;
   final Set<String> _expanded = <String>{};
-  Ticker? _ticker;
+  late final Ticker _ticker;
 
   @override
   void initState() {
     super.initState();
+    _ticker = createTicker(_onTick);
     _syncTicker();
   }
 
@@ -761,28 +762,24 @@ class SectionViewState extends State<SectionView>
 
   @override
   void dispose() {
-    _ticker?.dispose();
-    _ticker = null;
+    _ticker.dispose();
     super.dispose();
+  }
+
+  void _onTick(Duration _) {
+    if (!_hasLivePulse()) {
+      _ticker.stop();
+      return;
+    }
+    if (mounted) setState(() {});
   }
 
   void _syncTicker() {
     final hasLive = _hasLivePulse();
-    if (hasLive && _ticker == null) {
-      _ticker = createTicker((_) {
-        if (!_hasLivePulse()) {
-          _ticker?.stop();
-          _ticker?.dispose();
-          _ticker = null;
-          return;
-        }
-        if (mounted) setState(() {});
-      });
-      _ticker!.start();
-    } else if (!hasLive && _ticker != null) {
-      _ticker!.stop();
-      _ticker!.dispose();
-      _ticker = null;
+    if (hasLive && !_ticker.isActive) {
+      _ticker.start();
+    } else if (!hasLive && _ticker.isActive) {
+      _ticker.stop();
     }
   }
 
