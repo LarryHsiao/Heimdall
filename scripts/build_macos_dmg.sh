@@ -174,11 +174,15 @@ codesign --force --timestamp \
   "$DMG_PATH"
 
 echo "==> Submitting to Apple notary service (this can take several minutes)"
-xcrun notarytool submit "$DMG_PATH" \
-  --key "$KEY_PATH" \
-  --key-id "$NOTARY_API_KEY_ID" \
-  --issuer "$NOTARY_API_ISSUER_ID" \
-  --wait
+NOTARY_ARGS=( --key "$KEY_PATH" --key-id "$NOTARY_API_KEY_ID" --wait )
+# notarytool's --issuer expects a UUID (Team API keys). Individual API
+# keys take only --key and --key-id; passing a non-UUID Team Id there is
+# rejected with "must be a valid UUID". Detect and omit accordingly.
+if [[ -n "${NOTARY_API_ISSUER_ID:-}" && \
+      "$NOTARY_API_ISSUER_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+  NOTARY_ARGS+=( --issuer "$NOTARY_API_ISSUER_ID" )
+fi
+xcrun notarytool submit "$DMG_PATH" "${NOTARY_ARGS[@]}"
 
 echo "==> Stapling the notarization ticket"
 xcrun stapler staple "$DMG_PATH"
