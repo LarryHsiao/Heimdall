@@ -444,6 +444,7 @@ class _TicketDetailPageState extends State<TicketDetailPage>
     return MarkdownBody(
       data: markdown,
       selectable: true,
+      styleSheet: _markdownStyle(context),
       onTapLink: (_, href, _) {
         if (href == null || href.isEmpty) return;
         launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
@@ -891,12 +892,29 @@ class _TicketDetailPageState extends State<TicketDetailPage>
     return MarkdownBody(
       data: markdown,
       selectable: true,
+      styleSheet: _markdownStyle(context),
       imageBuilder: _descriptionImage,
       checkboxBuilder: _checkboxFor,
       onTapLink: (_, href, _) {
         if (href == null || href.isEmpty) return;
         launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
       },
+    );
+  }
+
+  MarkdownStyleSheet _markdownStyle(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final base = MarkdownStyleSheet.fromTheme(theme);
+    return base.copyWith(
+      a: (base.a ?? const TextStyle()).copyWith(color: scheme.primary),
+      blockquote: (base.blockquote ?? const TextStyle()).copyWith(
+        color: scheme.onSurfaceVariant,
+      ),
+      blockquoteDecoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(4),
+      ),
     );
   }
 
