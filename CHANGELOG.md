@@ -10,12 +10,102 @@ All notable changes to Heimdall are recorded here. The format follows [Keep a Ch
 
 - Expand or collapse every parent's filter-hidden sub-tasks at once from a new toolbar button; the choice persists across launches. Per-row unfold icons still override an individual parent within a session.
 
+## [1.4.12] — 2026-05-29
+
+_Release-pipeline bump; no user-facing changes._
+
+## [1.4.11] — 2026-05-28
+
+### Fixed
+
+- Markdown links and blockquotes in ticket descriptions now read correctly in dark mode.
+
+## [1.4.10] — 2026-05-22
+
+### Added
+
+- Row pulse — rows that changed or newly arrived on a poll briefly pulse, so motion marks what moved.
+- Comment timestamps render as relative time ("5m ago", "yesterday").
+- Cmd/Ctrl+Enter submits a comment, bypassing the empty-field guard.
+- Confirmation prompt before deleting a saved filter.
+
+### Changed
+
+- Ticket polling continues while the window is unfocused.
+
+### Fixed
+
+- Multi-ticker crash on the section view.
+
+## [1.4.9] — 2026-05-22
+
+_Build only — fix the GitHub-release script to accept TeamCity's short tag names._
+
+## [1.4.8] — 2026-05-22
+
+### Added
+
+- Windows build and GitHub release scripts for TeamCity CI; the Windows signing certificate is guarded from accidental commit.
+
+## [1.4.7] — 2026-05-21
+
+_Release-pipeline bump; no user-facing changes._
+
+## [1.4.6] — 2026-05-21
+
+_Release-pipeline bump; no user-facing changes._
+
+## [1.4.5] — 2026-05-21
+
+_Build only — macOS code-signing fixes (sign by certificate SHA-1; use the IDENTITY_NAME variable in team-id extraction)._
+
+## [1.4.4] — 2026-05-21
+
+_Release-pipeline bump; no user-facing changes._
+
+## [1.4.3] — 2026-05-21
+
+_Release-pipeline bump; no user-facing changes._
+
+## [1.4.2] — 2026-05-21
+
+_Release-pipeline bump; no user-facing changes._
+
+## [1.4.1] — 2026-05-21
+
+### Added
+
+- Live ticket preview in the filter edit view.
+
+## [1.4.0] — 2026-05-19
+
+### Added
+
+- @-mention autocomplete in the comments composer.
+
+### Changed
+
+- The macOS DMG is signed with entitlements and an embedded provisioning profile.
+
 ## [1.3.1] — 2026-05-18
 
 ### Added
 
 - JQL field autocomplete — typing in the JQL box now offers field names and keyword completions, and value suggestions that are context-aware (proposed values depend on the field being filtered).
 - Appearance toggle — Light / Dark / System mode, persisted across launches.
+
+## [1.3.0] — 2026-05-14
+
+### Added
+
+- The active tab auto-refreshes every 60 seconds.
+
+## [1.2.0] — 2026-05-12
+
+### Added
+
+- Assignees can be set from both the detail page and the table.
+- A filtered parent's hidden sub-tasks surface inline — an indicator on the parent row expands the sub-tasks the filter had elided.
 
 ## [1.1.1] — 2026-05-11
 
