@@ -4,7 +4,11 @@
 ; Output lands in build\installer\.
 
 #define MyAppName        "Heimdall"
-#define MyAppVersion     "1.4.9"
+; Version is supplied by the build script via ISCC /DMyAppVersion=<pubspec version>.
+; The literal below is only a fallback for a bare local compile with no define.
+#ifndef MyAppVersion
+  #define MyAppVersion   "1.4.13"
+#endif
 #define MyAppPublisher   "Larry Hsiao"
 #define MyAppURL         "https://github.com/LarryHsiao/Heimdall"
 #define MyAppExeName     "heimdall.exe"
