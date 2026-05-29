@@ -39,7 +39,9 @@ _Release-pipeline bump; no user-facing changes._
 
 ## [1.4.9] — 2026-05-22
 
-_Build only — fix the GitHub-release script to accept TeamCity's short tag names._
+### Fixed
+
+- The GitHub-release script (`release_github.ps1`) accepts TeamCity's short tag names.
 
 ## [1.4.8] — 2026-05-22
 
@@ -57,7 +59,10 @@ _Release-pipeline bump; no user-facing changes._
 
 ## [1.4.5] — 2026-05-21
 
-_Build only — macOS code-signing fixes (sign by certificate SHA-1; use the IDENTITY_NAME variable in team-id extraction)._
+### Fixed
+
+- macOS signing selects the certificate by its SHA-1, avoiding ambiguity when several Developer ID identities share a common name.
+- The team-id extraction error message refers to the `IDENTITY_NAME` variable.
 
 ## [1.4.4] — 2026-05-21
 
