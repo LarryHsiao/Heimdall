@@ -335,6 +335,12 @@ class _TicketsPageState extends State<TicketsPage> {
     _writeSettings(_settings.copyWith(mode: next));
   }
 
+  void _toggleSubtasks() {
+    _writeSettings(
+      _settings.copyWith(subtasksExpanded: !_settings.subtasksExpanded),
+    );
+  }
+
   void _onSort(SortColumn column, bool ascending) {
     _writeSettings(_settings.copyWith(column: column, ascending: ascending));
   }
@@ -372,6 +378,17 @@ class _TicketsPageState extends State<TicketsPage> {
             onPressed: _toggleMode,
             icon: Icon(
               grouped ? Icons.account_tree_outlined : Icons.view_list_outlined,
+            ),
+          ),
+          IconButton(
+            tooltip: _settings.subtasksExpanded
+                ? 'Collapse all sub-tasks'
+                : 'Expand all sub-tasks',
+            onPressed: _toggleSubtasks,
+            icon: Icon(
+              _settings.subtasksExpanded
+                  ? Icons.unfold_less
+                  : Icons.unfold_more,
             ),
           ),
           IconButton(
@@ -744,7 +761,8 @@ class SectionView extends StatefulWidget {
 class SectionViewState extends State<SectionView>
     with SingleTickerProviderStateMixin {
   String? _hoveredKey;
-  final Set<String> _expanded = <String>{};
+  // Parents whose sub-task state differs from settings.subtasksExpanded.
+  final Set<String> _overrides = <String>{};
   late final Ticker _ticker;
 
   @override
@@ -757,8 +775,14 @@ class SectionViewState extends State<SectionView>
   @override
   void didUpdateWidget(SectionView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings.subtasksExpanded != settings.subtasksExpanded) {
+      _overrides.clear();
+    }
     _syncTicker();
   }
+
+  bool _isExpanded(String key) =>
+      _overrides.contains(key) ? !settings.subtasksExpanded : settings.subtasksExpanded;
 
   @override
   void dispose() {
@@ -969,7 +993,7 @@ class SectionViewState extends State<SectionView>
   }
 
   Iterable<_Row> _elidedRowsFor(String parentKey, List<JiraTicket> hidden) {
-    if (hidden.isEmpty || !_expanded.contains(parentKey)) {
+    if (hidden.isEmpty || !_isExpanded(parentKey)) {
       return const <_Row>[];
     }
     return [
@@ -1266,7 +1290,7 @@ class SectionViewState extends State<SectionView>
   }
 
   Widget _hiddenChildrenIndicator(_Row row) {
-    final expanded = _expanded.contains(row.ticket.key);
+    final expanded = _isExpanded(row.ticket.key);
     return Tooltip(
       message: expanded ? 'Hide elided sub-tasks' : 'Show hidden sub-tasks',
       child: InkWell(
@@ -1282,8 +1306,8 @@ class SectionViewState extends State<SectionView>
 
   void _toggleHiddenChildren(String parentKey) {
     setState(() {
-      if (!_expanded.add(parentKey)) {
-        _expanded.remove(parentKey);
+      if (!_overrides.add(parentKey)) {
+        _overrides.remove(parentKey);
       }
     });
   }

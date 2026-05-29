@@ -32,11 +32,12 @@ Future<void> _pump(
   WidgetTester tester,
   FilterSection section, {
   required ViewMode mode,
+  bool subtasksExpanded = false,
   ValueChanged<JiraTicket>? onTicketTap,
 }) async {
   await tester.binding.setSurfaceSize(const Size(1200, 800));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  final settings = ViewSettings(mode: mode);
+  final settings = ViewSettings(mode: mode, subtasksExpanded: subtasksExpanded);
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
@@ -233,6 +234,45 @@ void main() {
               find.byIcon(Icons.unfold_more),
               findsExactly(collapsedIcon),
             );
+          },
+        );
+
+        testWidgets(
+          'subtasksExpanded shows hidden sub-tasks by default; '
+          'tapping the indicator collapses just that parent',
+          (tester) async {
+            final parent = _ticket(key: 'HEI-1');
+            final visibleChild =
+                _ticket(key: 'HEI-2', parentKey: 'HEI-1');
+            final hiddenChild = _ticket(
+              key: 'HEI-3',
+              parentKey: 'HEI-1',
+              summary: 'Hidden child',
+            );
+            final section = FilterSection(
+              filter: _filter,
+              tickets: [parent, visibleChild],
+              allTickets: [parent, visibleChild, hiddenChild],
+            );
+
+            await _pump(
+              tester,
+              section,
+              mode: mode,
+              subtasksExpanded: true,
+            );
+
+            const oneRow = 1;
+            const oneIcon = 1;
+            const noRow = 0;
+            expect(find.text('HEI-3'), findsExactly(oneRow));
+            expect(find.byIcon(Icons.unfold_less), findsExactly(oneIcon));
+
+            await tester.tap(_indicatorFor('HEI-1'));
+            await tester.pumpAndSettle();
+
+            expect(find.text('HEI-3'), findsExactly(noRow));
+            expect(find.byIcon(Icons.unfold_more), findsExactly(oneIcon));
           },
         );
       });

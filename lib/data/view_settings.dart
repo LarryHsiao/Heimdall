@@ -15,12 +15,14 @@ class ViewSettings {
   final SortColumn column;
   final bool ascending;
   final Map<SortColumn, double> columnWidths;
+  final bool subtasksExpanded;
 
   const ViewSettings({
     this.mode = ViewMode.grouped,
     this.column = SortColumn.none,
     this.ascending = true,
     this.columnWidths = defaultWidths,
+    this.subtasksExpanded = false,
   });
 
   double widthOf(SortColumn column) =>
@@ -31,12 +33,14 @@ class ViewSettings {
     SortColumn? column,
     bool? ascending,
     Map<SortColumn, double>? columnWidths,
+    bool? subtasksExpanded,
   }) =>
       ViewSettings(
         mode: mode ?? this.mode,
         column: column ?? this.column,
         ascending: ascending ?? this.ascending,
         columnWidths: columnWidths ?? this.columnWidths,
+        subtasksExpanded: subtasksExpanded ?? this.subtasksExpanded,
       );
 
   ViewSettings setWidth(SortColumn column, double width) {
@@ -52,6 +56,7 @@ class ViewSettings {
         'widths': {
           for (final e in columnWidths.entries) e.key.name: e.value,
         },
+        'subtasksExpanded': subtasksExpanded,
       };
 
   static ViewSettings fromJson(Map<String, dynamic> json) {
@@ -77,6 +82,7 @@ class ViewSettings {
       ),
       ascending: (json['ascending'] as bool?) ?? true,
       columnWidths: widths,
+      subtasksExpanded: (json['subtasksExpanded'] as bool?) ?? false,
     );
   }
 }
