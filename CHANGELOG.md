@@ -4,6 +4,12 @@ All notable changes to Heimdall are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [1.4.13] — 2026-05-29
+
+### Added
+
+- Expand or collapse every parent's filter-hidden sub-tasks at once from a new toolbar button; the choice persists across launches. Per-row unfold icons still override an individual parent within a session.
+
 ## [1.3.1] — 2026-05-18
 
 ### Added
