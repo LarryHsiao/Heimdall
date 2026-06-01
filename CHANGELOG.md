@@ -4,6 +4,17 @@ All notable changes to Heimdall are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [1.4.14] — 2026-06-01
+
+### Added
+
+- Filter the ticket table by more than one assignee at once: the assignee control is now a checkbox menu that stays open across picks, and reads "N assignees" once several are chosen.
+- Open a ticket in its own desktop window from the detail view's title bar, so a list and one or more tickets can sit side by side.
+
+### Changed
+
+- The ticket detail now refreshes the whole ticket — status, assignee, priority, description, sub-tasks, links — on its interval poll, not just comments. The interval eased from 30s to 60s to spare needless calls, and a watched window keeps refreshing while it is visible but unfocused, pausing only when minimized or hidden.
+
 ## [1.4.13] — 2026-05-29
 
 ### Added

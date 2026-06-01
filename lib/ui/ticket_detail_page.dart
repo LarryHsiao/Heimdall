@@ -20,7 +20,7 @@ import 'status_chip.dart';
 import 'ticket_chrome.dart';
 
 const double _wideThreshold = 800;
-const Duration _pollInterval = Duration(seconds: 30);
+const Duration _pollInterval = Duration(seconds: 60);
 
 class TicketDetailPage extends StatefulWidget {
   final JiraTicket initial;
@@ -36,6 +36,7 @@ class TicketDetailPage extends StatefulWidget {
   final Future<void> Function(Map<String, dynamic>)? onUpdateDescription;
   final Future<List<JiraUser>> Function(String query)? onLoadAssignableUsers;
   final Future<void> Function(JiraUser?)? onChangeAssignee;
+  final VoidCallback? onOpenInNewWindow;
 
   const TicketDetailPage({
     super.key,
@@ -52,6 +53,7 @@ class TicketDetailPage extends StatefulWidget {
     this.onUpdateDescription,
     this.onLoadAssignableUsers,
     this.onChangeAssignee,
+    this.onOpenInNewWindow,
   });
 
   @override
@@ -93,16 +95,45 @@ class _TicketDetailPageState extends State<TicketDetailPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _startPolling();
-    } else {
-      _stopPolling();
+    switch (state) {
+      // Visible — focused or merely behind another window — keeps refreshing,
+      // so a watched ticket stays current even while you work elsewhere.
+      case AppLifecycleState.resumed:
+      case AppLifecycleState.inactive:
+        _startPolling();
+      // Truly out of sight — minimized, hidden, or shutting down — pauses to
+      // spare needless calls.
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        _stopPolling();
     }
   }
 
   void _startPolling() {
     if (_poll != null) return;
-    _poll = Timer.periodic(_pollInterval, (_) => _pollComments());
+    _poll = Timer.periodic(_pollInterval, (_) => _pollTick());
+  }
+
+  Future<void> _pollTick() async {
+    if (_posting || _loading || _commentsLoading || _savingTask ||
+        _savingAssignee) {
+      return;
+    }
+    await Future.wait([_pollIssue(), _pollComments()]);
+  }
+
+  Future<void> _pollIssue() async {
+    try {
+      final issue = await widget.onLoad();
+      if (!mounted) return;
+      setState(() {
+        _issue = issue;
+        _ticket = issue.ticket;
+      });
+    } catch (_) {
+      // Quiet failure — manual Refresh surfaces persistent errors.
+    }
   }
 
   void _stopPolling() {
@@ -215,6 +246,12 @@ class _TicketDetailPageState extends State<TicketDetailPage>
       appBar: AppBar(
         title: Text(_ticket.key),
         actions: [
+          if (widget.onOpenInNewWindow != null)
+            IconButton(
+              tooltip: 'Open in separate window',
+              onPressed: widget.onOpenInNewWindow,
+              icon: const Icon(Icons.web_asset),
+            ),
           IconButton(
             tooltip: 'Open in browser',
             onPressed: _openInBrowser,

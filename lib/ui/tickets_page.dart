@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -16,6 +17,7 @@ import '../data/vault.dart';
 import '../data/view_settings.dart';
 import 'assignee_filter.dart';
 import 'assignee_picker.dart';
+import 'ticket_window_args.dart';
 import 'filter_form_page.dart';
 import 'filters_page.dart';
 import 'row_pulse.dart';
@@ -278,9 +280,31 @@ class _TicketsPageState extends State<TicketsPage> {
               _jira.updateDescription(ticket, desc, credentials),
           onLoadAssignableUsers: (q) => _loadAssignableUsers(ticket, q),
           onChangeAssignee: (user) => _applyAssignee(ticket, user),
+          onOpenInNewWindow: () => _openInWindow(credentials, ticket),
         ),
       ),
     );
+  }
+
+  Future<void> _openInWindow(
+    JiraCredentials credentials,
+    JiraTicket ticket,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final args = TicketWindowArgs(
+      ticketKey: ticket.key,
+      credentials: credentials,
+    );
+    try {
+      final controller = await WindowController.create(
+        WindowConfiguration(arguments: args.encode()),
+      );
+      await controller.show();
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not open window: $e')),
+      );
+    }
   }
 
   Future<List<JiraTransition>> _loadTransitions(JiraTicket ticket) async {
