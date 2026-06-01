@@ -103,7 +103,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "signtool (app) exited $LASTEXITCODE" }
 
   Write-Host "==> Compiling Inno installer"
-  & $Iscc 'installer\heimdall.iss'
+  & $Iscc "/DMyAppVersion=$Version" 'installer\heimdall.iss'
   if ($LASTEXITCODE -ne 0) { throw "ISCC exited $LASTEXITCODE" }
   $InstallerSrc = "build\installer\$AppName-setup-$Version.exe"
   if (-not (Test-Path $InstallerSrc)) {
