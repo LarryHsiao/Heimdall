@@ -14,6 +14,7 @@ import '../data/jira_user.dart';
 import '../data/preferences.dart';
 import '../data/vault.dart';
 import '../data/view_settings.dart';
+import 'assignee_filter.dart';
 import 'assignee_picker.dart';
 import 'filter_form_page.dart';
 import 'filters_page.dart';
@@ -38,7 +39,7 @@ class _TicketsPageState extends State<TicketsPage> {
   final Jira _jira = Jira();
 
   ViewSettings _settings = const ViewSettings();
-  String? _assigneeFilter;
+  AssigneeFilter _assigneeFilter = const AssigneeFilter();
   String _search = '';
   final TextEditingController _searchController = TextEditingController();
   _PageState? _data;
@@ -433,9 +434,7 @@ class _TicketsPageState extends State<TicketsPage> {
       );
     }
     final options = _assigneesOf(data.sections);
-    if (!_isFilterValid(options)) {
-      _assigneeFilter = null;
-    }
+    _assigneeFilter = _assigneeFilter.pruned(options.valid);
     final filtered = _filterSections(data.sections, _assigneeFilter, _search);
     final keyId = filtered.map((s) => s.filter.id).join(',');
     return DefaultTabController(
@@ -504,27 +503,20 @@ class _TicketsPageState extends State<TicketsPage> {
     return _AssigneeOptions(named: named, hasUnassigned: hasUnassigned);
   }
 
-  bool _isFilterValid(_AssigneeOptions options) {
-    if (_assigneeFilter == null) return true;
-    if (_assigneeFilter == '') return options.hasUnassigned;
-    return options.named.contains(_assigneeFilter);
-  }
-
   List<FilterSection> _filterSections(
     List<FilterSection> sections,
-    String? assignee,
+    AssigneeFilter assignee,
     String search,
   ) {
     final q = search.trim();
-    if (assignee == null && q.isEmpty) return sections;
+    if (assignee.isEmpty && q.isEmpty) return sections;
     return sections
         .map(
           (s) => FilterSection(
             filter: s.filter,
             tickets: s.tickets
                 .where((t) =>
-                    (assignee == null || t.assignee == assignee) &&
-                    t.matchesSearch(q))
+                    assignee.accepts(t.assignee) && t.matchesSearch(q))
                 .toList(),
             allTickets: s.allTickets,
             error: s.error,
@@ -617,28 +609,55 @@ class _TicketsPageState extends State<TicketsPage> {
         children: [
           const Icon(Icons.person_outline, size: 18),
           const SizedBox(width: 8),
-          DropdownButton<String?>(
-            value: _assigneeFilter,
-            hint: const Text('All assignees'),
-            underline: const SizedBox.shrink(),
-            items: [
-              const DropdownMenuItem<String?>(
-                value: null,
-                child: Text('All assignees'),
-              ),
-              if (options.hasUnassigned)
-                const DropdownMenuItem<String?>(
-                  value: '',
-                  child: Text('(Unassigned)'),
-                ),
-              for (final a in options.named)
-                DropdownMenuItem<String?>(value: a, child: Text(a)),
-            ],
-            onChanged: (v) => setState(() => _assigneeFilter = v),
+          MenuAnchor(
+            menuChildren: _assigneeMenuItems(options),
+            builder: (context, controller, child) => TextButton.icon(
+              onPressed: () =>
+                  controller.isOpen ? controller.close() : controller.open(),
+              icon: const Icon(Icons.arrow_drop_down, size: 20),
+              label: Text(_assigneeLabel()),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  List<Widget> _assigneeMenuItems(_AssigneeOptions options) {
+    void toggle(String name) =>
+        setState(() => _assigneeFilter = _assigneeFilter.toggled(name));
+    return [
+      MenuItemButton(
+        closeOnActivate: false,
+        onPressed: () =>
+            setState(() => _assigneeFilter = const AssigneeFilter()),
+        child: const Text('All assignees'),
+      ),
+      if (options.hasUnassigned)
+        CheckboxMenuButton(
+          closeOnActivate: false,
+          value: _assigneeFilter.has(''),
+          onChanged: (_) => toggle(''),
+          child: const Text('(Unassigned)'),
+        ),
+      for (final a in options.named)
+        CheckboxMenuButton(
+          closeOnActivate: false,
+          value: _assigneeFilter.has(a),
+          onChanged: (_) => toggle(a),
+          child: Text(a),
+        ),
+    ];
+  }
+
+  String _assigneeLabel() {
+    final selected = _assigneeFilter.selected;
+    if (selected.isEmpty) return 'All assignees';
+    if (selected.length == 1) {
+      final only = selected.first;
+      return only.isEmpty ? '(Unassigned)' : only;
+    }
+    return '${selected.length} assignees';
   }
 }
 
@@ -647,6 +666,8 @@ class _AssigneeOptions {
   final bool hasUnassigned;
 
   const _AssigneeOptions({required this.named, required this.hasUnassigned});
+
+  Set<String> get valid => {...named, if (hasUnassigned) ''};
 }
 
 class _PageState {
