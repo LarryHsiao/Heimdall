@@ -12,6 +12,7 @@ import '../data/jira_filter.dart';
 import '../data/jira_ticket.dart';
 import '../data/jira_transition.dart';
 import '../data/jira_user.dart';
+import '../data/jql_with_issue.dart';
 import '../data/preferences.dart';
 import '../data/refresh_interval.dart';
 import '../data/refresh_timer.dart';
@@ -263,6 +264,8 @@ class _TicketsPageState extends State<TicketsPage> {
     _refresh();
   }
 
+  bool get _hasSections => (_data?.sections.isNotEmpty ?? false);
+
   Future<void> _addFilter() async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const FilterFormPage()),
@@ -419,6 +422,11 @@ class _TicketsPageState extends State<TicketsPage> {
             tooltip: 'Open ticket by key',
             onPressed: _openByKey,
             icon: const Icon(Icons.tag),
+          ),
+          IconButton(
+            tooltip: 'Add ticket to filter',
+            onPressed: () => _hasSections ? _addToFilter() : _addFilter(),
+            icon: const Icon(Icons.playlist_add),
           ),
           IconButton(
             tooltip: 'Add ticket',
@@ -613,12 +621,54 @@ class _TicketsPageState extends State<TicketsPage> {
   Future<void> _openByKey() async {
     final credentials = _data?.credentials;
     if (credentials == null) return;
+    final key = await _promptKey(title: 'Open ticket by key', confirm: 'Open');
+    if (key == null || key.isEmpty) return;
+    final stub = JiraTicket(
+      key: key.toUpperCase(),
+      summary: '',
+      statusName: '',
+      statusCategory: '',
+      issueType: '',
+    );
+    if (!mounted) return;
+    await _openDetail(credentials, stub);
+  }
+
+  Future<void> _addToFilter() async {
+    final data = _data;
+    if (data == null) return;
+    if (_activeTabIndex < 0 || _activeTabIndex >= data.sections.length) {
+      return _addFilter();
+    }
+    final active = data.sections[_activeTabIndex].filter;
+    final key = await _promptKey(
+      title: 'Add ticket to ${active.name}',
+      confirm: 'Add',
+    );
+    if (key == null || key.isEmpty) return;
+    final composed = JqlWithIssue(active, key.toUpperCase()).value();
+    if (!mounted) return;
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            FilterFormPage(existing: active, initialQuery: composed),
+      ),
+    );
+    if (result == true) {
+      _refresh();
+    }
+  }
+
+  Future<String?> _promptKey({
+    required String title,
+    required String confirm,
+  }) async {
     final controller = TextEditingController();
     try {
-      final key = await showDialog<String>(
+      return await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Open ticket by key'),
+          title: Text(title),
           content: TextField(
             controller: controller,
             autofocus: true,
@@ -635,23 +685,12 @@ class _TicketsPageState extends State<TicketsPage> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () =>
-                  Navigator.of(ctx).pop(controller.text.trim()),
-              child: const Text('Open'),
+              onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+              child: Text(confirm),
             ),
           ],
         ),
       );
-      if (key == null || key.isEmpty) return;
-      final stub = JiraTicket(
-        key: key.toUpperCase(),
-        summary: '',
-        statusName: '',
-        statusCategory: '',
-        issueType: '',
-      );
-      if (!mounted) return;
-      await _openDetail(credentials, stub);
     } finally {
       controller.dispose();
     }

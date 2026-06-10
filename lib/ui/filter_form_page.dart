@@ -13,8 +13,9 @@ import 'status_chip.dart';
 
 class FilterFormPage extends StatefulWidget {
   final JiraFilter? existing;
+  final String? initialQuery;
 
-  const FilterFormPage({super.key, this.existing});
+  const FilterFormPage({super.key, this.existing, this.initialQuery});
 
   @override
   State<FilterFormPage> createState() => _FilterFormPageState();
@@ -55,8 +56,9 @@ class _FilterFormPageState extends State<FilterFormPage> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.existing?.name ?? '');
-    _queryController =
-        TextEditingController(text: widget.existing?.query ?? '');
+    _queryController = TextEditingController(
+      text: widget.initialQuery ?? widget.existing?.query ?? '',
+    );
     _queryController.addListener(_onQueryChanged);
     _loadAutocompletion();
     if (_queryController.text.trim().isNotEmpty) {
