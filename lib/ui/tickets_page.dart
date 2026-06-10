@@ -20,6 +20,7 @@ import '../data/view_settings.dart';
 import 'assignee_filter.dart';
 import 'assignee_picker.dart';
 import 'ticket_window_args.dart';
+import 'add_ticket_page.dart';
 import 'filter_form_page.dart';
 import 'filters_page.dart';
 import 'row_pulse.dart';
@@ -271,6 +272,15 @@ class _TicketsPageState extends State<TicketsPage> {
     }
   }
 
+  Future<void> _addTicket() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const AddTicketPage()),
+    );
+    if (result == true) {
+      _refresh();
+    }
+  }
+
   Future<void> _openDetail(
     JiraCredentials credentials,
     JiraTicket ticket,
@@ -409,6 +419,11 @@ class _TicketsPageState extends State<TicketsPage> {
             tooltip: 'Open ticket by key',
             onPressed: _openByKey,
             icon: const Icon(Icons.tag),
+          ),
+          IconButton(
+            tooltip: 'Add ticket',
+            onPressed: _addTicket,
+            icon: const Icon(Icons.add),
           ),
           IconButton(
             tooltip: 'Refresh',
