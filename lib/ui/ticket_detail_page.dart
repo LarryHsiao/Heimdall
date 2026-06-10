@@ -13,6 +13,7 @@ import '../data/jira_ticket.dart';
 import '../data/jira_transition.dart';
 import '../data/jira_user.dart';
 import '../data/mentioned_comment.dart';
+import '../data/refresh_interval.dart';
 import 'assignee_picker.dart';
 import 'mention_field.dart';
 import 'relative_date.dart';
@@ -20,11 +21,11 @@ import 'status_chip.dart';
 import 'ticket_chrome.dart';
 
 const double _wideThreshold = 800;
-const Duration _pollInterval = Duration(seconds: 60);
 
 class TicketDetailPage extends StatefulWidget {
   final JiraTicket initial;
   final String baseUrl;
+  final RefreshInterval refreshInterval;
   final Map<String, String> imageHeaders;
   final Future<JiraIssue> Function() onLoad;
   final Future<List<JiraTransition>> Function() onLoadTransitions;
@@ -42,6 +43,7 @@ class TicketDetailPage extends StatefulWidget {
     super.key,
     required this.initial,
     required this.baseUrl,
+    this.refreshInterval = RefreshInterval.oneMinute,
     this.imageHeaders = const {},
     required this.onLoad,
     required this.onLoadTransitions,
@@ -94,6 +96,15 @@ class _TicketDetailPageState extends State<TicketDetailPage>
   }
 
   @override
+  void didUpdateWidget(TicketDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshInterval != widget.refreshInterval) {
+      _stopPolling();
+      _startPolling();
+    }
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       // Visible — focused or merely behind another window — keeps refreshing,
@@ -112,7 +123,9 @@ class _TicketDetailPageState extends State<TicketDetailPage>
 
   void _startPolling() {
     if (_poll != null) return;
-    _poll = Timer.periodic(_pollInterval, (_) => _pollTick());
+    final cadence = widget.refreshInterval.duration;
+    if (cadence == null) return;
+    _poll = Timer.periodic(cadence, (_) => _pollTick());
   }
 
   Future<void> _pollTick() async {

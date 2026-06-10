@@ -13,6 +13,8 @@ import '../data/jira_ticket.dart';
 import '../data/jira_transition.dart';
 import '../data/jira_user.dart';
 import '../data/preferences.dart';
+import '../data/refresh_interval.dart';
+import '../data/refresh_timer.dart';
 import '../data/vault.dart';
 import '../data/view_settings.dart';
 import 'assignee_filter.dart';
@@ -33,7 +35,7 @@ class TicketsPage extends StatefulWidget {
 }
 
 class _TicketsPageState extends State<TicketsPage> {
-  static const Duration _pollInterval = Duration(seconds: 60);
+  RefreshInterval _interval = RefreshInterval.oneMinute;
 
   final Vault _vault = Vault();
   final Filters _filters = Filters();
@@ -67,6 +69,18 @@ class _TicketsPageState extends State<TicketsPage> {
     _bootstrap();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = RefreshTimerScope.of(context).interval;
+    if (next == _interval) return;
+    _interval = next;
+    if (_poll != null) {
+      _stopPolling();
+      _startPolling();
+    }
+  }
+
   Future<void> _bootstrap() async {
     _settings = await _preferences.read();
     await _doLoad();
@@ -77,7 +91,9 @@ class _TicketsPageState extends State<TicketsPage> {
 
   void _startPolling() {
     if (_poll != null) return;
-    _poll = Timer.periodic(_pollInterval, (_) => _pollActiveSection());
+    final cadence = _interval.duration;
+    if (cadence == null) return;
+    _poll = Timer.periodic(cadence, (_) => _pollActiveSection());
   }
 
   void _stopPolling() {
@@ -267,6 +283,7 @@ class _TicketsPageState extends State<TicketsPage> {
         builder: (_) => TicketDetailPage(
           initial: ticket,
           baseUrl: credentials.baseUrl,
+          refreshInterval: RefreshTimerScope.of(context).interval,
           imageHeaders: {'Authorization': 'Basic $auth'},
           onLoad: () => _jira.issue(ticket, credentials),
           onLoadTransitions: () => _loadTransitions(ticket),
