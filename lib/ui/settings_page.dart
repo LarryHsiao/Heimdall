@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../data/appearance.dart';
 import '../data/jira_credentials.dart';
+import '../data/refresh_interval.dart';
+import '../data/refresh_timer.dart';
 import '../data/vault.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -95,6 +97,45 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _refreshRow() {
+    final timer = RefreshTimerScope.of(context);
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Refresh', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 8),
+        SegmentedButton<RefreshInterval>(
+          segments: const [
+            ButtonSegment(
+              value: RefreshInterval.tenSeconds,
+              label: Text('10s'),
+            ),
+            ButtonSegment(
+              value: RefreshInterval.thirtySeconds,
+              label: Text('30s'),
+            ),
+            ButtonSegment(
+              value: RefreshInterval.oneMinute,
+              label: Text('1m'),
+            ),
+            ButtonSegment(
+              value: RefreshInterval.fiveMinutes,
+              label: Text('5m'),
+            ),
+            ButtonSegment(
+              value: RefreshInterval.off,
+              label: Text('Off'),
+            ),
+          ],
+          selected: {timer.interval},
+          onSelectionChanged: (selection) =>
+              timer.setInterval(selection.first),
+        ),
+      ],
+    );
+  }
+
   String? _required(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Required';
@@ -143,6 +184,8 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 24),
             _appearanceRow(),
+            const SizedBox(height: 24),
+            _refreshRow(),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _saving ? null : _save,

@@ -5,6 +5,7 @@ import 'package:heimdall/data/jira_issue.dart';
 import 'package:heimdall/data/jira_ticket.dart';
 import 'package:heimdall/data/jira_transition.dart';
 import 'package:heimdall/data/jira_user.dart';
+import 'package:heimdall/data/refresh_interval.dart';
 import 'package:heimdall/ui/ticket_detail_page.dart';
 
 void main() {
@@ -134,6 +135,85 @@ void main() {
     await tester.pump(const Duration(seconds: 65));
     await tester.pump();
     expect(loadCount, afterFirstLoad);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('off interval runs no poll timer', (tester) async {
+    const ticket = JiraTicket(
+      key: 'HEI-7',
+      summary: 'Watch the bridge',
+      statusName: 'To Do',
+      statusCategory: 'new',
+      issueType: 'Task',
+    );
+    var loadCount = 0;
+    final page = MaterialApp(
+      home: TicketDetailPage(
+        initial: ticket,
+        baseUrl: 'https://example.atlassian.net',
+        refreshInterval: RefreshInterval.off,
+        onLoad: () async {
+          loadCount++;
+          return const JiraIssue(ticket: ticket);
+        },
+        onLoadTransitions: () async => const <JiraTransition>[],
+        onApplyTransition: (_) async {},
+        onLoadComments: () async => const <JiraComment>[],
+        onPostComment: (_) async => const JiraComment(id: 'c1'),
+        onSearchUsers: (_) async => const <JiraUser>[],
+      ),
+    );
+
+    await tester.pumpWidget(page);
+    await tester.pumpAndSettle();
+    const afterFirstLoad = 1;
+    expect(loadCount, afterFirstLoad);
+
+    // No timer is armed, so time passing never reloads the issue.
+    await tester.pump(const Duration(seconds: 120));
+    await tester.pump();
+    expect(loadCount, afterFirstLoad);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a custom interval drives the poll cadence', (tester) async {
+    const ticket = JiraTicket(
+      key: 'HEI-7',
+      summary: 'Watch the bridge',
+      statusName: 'To Do',
+      statusCategory: 'new',
+      issueType: 'Task',
+    );
+    var loadCount = 0;
+    final page = MaterialApp(
+      home: TicketDetailPage(
+        initial: ticket,
+        baseUrl: 'https://example.atlassian.net',
+        refreshInterval: RefreshInterval.tenSeconds,
+        onLoad: () async {
+          loadCount++;
+          return const JiraIssue(ticket: ticket);
+        },
+        onLoadTransitions: () async => const <JiraTransition>[],
+        onApplyTransition: (_) async {},
+        onLoadComments: () async => const <JiraComment>[],
+        onPostComment: (_) async => const JiraComment(id: 'c1'),
+        onSearchUsers: (_) async => const <JiraUser>[],
+      ),
+    );
+
+    await tester.pumpWidget(page);
+    await tester.pumpAndSettle();
+    const afterFirstLoad = 1;
+    expect(loadCount, afterFirstLoad);
+
+    // The 60s default would not have fired yet; the 10s cadence does.
+    await tester.pump(const Duration(seconds: 11));
+    await tester.pump();
+    const afterPoll = 2;
+    expect(loadCount, afterPoll);
 
     await tester.pumpWidget(const SizedBox());
   });
