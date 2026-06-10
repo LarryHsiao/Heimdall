@@ -4,6 +4,12 @@ All notable changes to Heimdall are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [1.4.17] — 2026-06-10
+
+### Fixed
+
+- The Windows installer derives its version from `pubspec.yaml` rather than a hard-coded literal, so the installer version no longer drifts from the app version.
+
 ## [1.4.14] — 2026-06-01
 
 ### Added
