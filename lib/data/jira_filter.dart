@@ -17,6 +17,9 @@ class JiraFilter {
     if (RegExp(r'^\d+$').hasMatch(trimmed)) {
       return 'filter = $trimmed';
     }
+    if (RegExp(r'^[A-Za-z][A-Za-z0-9_]*-\d+$').hasMatch(trimmed)) {
+      return 'issuekey = $trimmed';
+    }
     return trimmed;
   }
 
@@ -32,3 +35,6 @@ class JiraFilter {
         query: json['query'] as String,
       );
 }
+
+String childrenJql(String key, {required bool isEpic}) =>
+    isEpic ? '"Epic Link" = $key' : 'parent = $key';
