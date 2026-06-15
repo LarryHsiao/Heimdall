@@ -43,6 +43,12 @@ class ViewSettings {
         subtasksExpanded: subtasksExpanded ?? this.subtasksExpanded,
       );
 
+  ViewSettings cycledBy(SortColumn column) {
+    if (this.column != column) return copyWith(column: column, ascending: true);
+    if (ascending) return copyWith(ascending: false);
+    return copyWith(column: SortColumn.none, ascending: true);
+  }
+
   ViewSettings setWidth(SortColumn column, double width) {
     final next = Map<SortColumn, double>.from(columnWidths);
     next[column] = width;

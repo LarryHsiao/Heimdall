@@ -36,4 +36,38 @@ void main() {
       expect(restored.subtasksExpanded, expected);
     });
   });
+
+  group('ViewSettings cycledBy', () {
+    test('tapping an inactive column sorts it ascending', () {
+      const expected = ViewSettings(column: SortColumn.key, ascending: true);
+      const base = ViewSettings();
+      final next = base.cycledBy(SortColumn.key);
+      expect(next.column, expected.column);
+      expect(next.ascending, expected.ascending);
+    });
+
+    test('tapping the active ascending column flips to descending', () {
+      const expected = ViewSettings(column: SortColumn.key, ascending: false);
+      const base = ViewSettings(column: SortColumn.key, ascending: true);
+      final next = base.cycledBy(SortColumn.key);
+      expect(next.column, expected.column);
+      expect(next.ascending, expected.ascending);
+    });
+
+    test('tapping the active descending column releases to server order', () {
+      const expected = SortColumn.none;
+      const base = ViewSettings(column: SortColumn.key, ascending: false);
+      final next = base.cycledBy(SortColumn.key);
+      expect(next.column, expected);
+    });
+
+    test('tapping a different column while one is active sorts it ascending',
+        () {
+      const expected = ViewSettings(column: SortColumn.status, ascending: true);
+      const base = ViewSettings(column: SortColumn.key, ascending: false);
+      final next = base.cycledBy(SortColumn.status);
+      expect(next.column, expected.column);
+      expect(next.ascending, expected.ascending);
+    });
+  });
 }
