@@ -1027,8 +1027,10 @@ class SectionViewState extends State<SectionView>
   Widget _headerLabel(String label, SortColumn column) {
     final active = settings.column == column;
     return InkWell(
-      onTap: () =>
-          widget.onSort(column, active ? !settings.ascending : true),
+      onTap: () {
+        final next = settings.cycledBy(column);
+        widget.onSort(next.column, next.ascending);
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
         child: Row(
