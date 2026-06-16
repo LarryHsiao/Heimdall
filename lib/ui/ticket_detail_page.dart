@@ -72,6 +72,9 @@ class _TicketDetailPageState extends State<TicketDetailPage>
   bool _commentsLoading = true;
   String? _commentsError;
   bool _posting = false;
+  int _unseenCommentCount = 0;
+
+  final ScrollController _commentsScroll = ScrollController();
 
   late JiraTicket _ticket;
   Timer? _poll;
@@ -91,6 +94,7 @@ class _TicketDetailPageState extends State<TicketDetailPage>
   @override
   void dispose() {
     _stopPolling();
+    _commentsScroll.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -159,10 +163,40 @@ class _TicketDetailPageState extends State<TicketDetailPage>
     try {
       final fresh = await widget.onLoadComments();
       if (!mounted) return;
-      setState(() => _comments = _merged(_comments, fresh));
+      final merged = _merged(_comments, fresh);
+      final newCount = merged.length - _comments.length;
+      if (_isAtBottom()) {
+        setState(() {
+          _comments = merged;
+          _unseenCommentCount = 0;
+        });
+        if (newCount > 0) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+        }
+      } else {
+        setState(() {
+          _comments = merged;
+          if (newCount > 0) _unseenCommentCount += newCount;
+        });
+      }
     } catch (_) {
       // Quiet failure — manual Refresh surfaces persistent errors.
     }
+  }
+
+  bool _isAtBottom() {
+    if (!_commentsScroll.hasClients) return true;
+    final pos = _commentsScroll.position;
+    return pos.pixels >= pos.maxScrollExtent - 40;
+  }
+
+  void _scrollToBottom() {
+    if (!_commentsScroll.hasClients) return;
+    _commentsScroll.animateTo(
+      _commentsScroll.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   List<JiraComment> _merged(
@@ -411,11 +445,42 @@ class _TicketDetailPageState extends State<TicketDetailPage>
       );
     }
     if (_comments.isEmpty) return _emptyComments();
-    return ListView.separated(
+    final list = ListView.separated(
+      controller: _commentsScroll,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: _comments.length,
       separatorBuilder: (_, _) => const SizedBox(height: 16),
       itemBuilder: (_, i) => _commentTile(_comments[i]),
+    );
+    if (_unseenCommentCount > 0) {
+      return Stack(
+        children: [
+          list,
+          Positioned(
+            bottom: 8,
+            right: 12,
+            child: _newCommentsBadge(),
+          ),
+        ],
+      );
+    }
+    return list;
+  }
+
+  Widget _newCommentsBadge() {
+    return FilledButton.tonal(
+      onPressed: () {
+        _scrollToBottom();
+        setState(() => _unseenCommentCount = 0);
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$_unseenCommentCount new'),
+          const SizedBox(width: 4),
+          const Icon(Icons.arrow_downward, size: 16),
+        ],
+      ),
     );
   }
 
@@ -448,6 +513,17 @@ class _TicketDetailPageState extends State<TicketDetailPage>
         body.add(_commentTile(c));
         body.add(const SizedBox(height: 16));
       }
+    }
+    // Narrow layout scrolls the entire page, so Stack-based overlay is not
+    // possible here. A flat badge row above the input serves the same purpose.
+    if (_unseenCommentCount > 0) {
+      body.add(
+        Align(
+          alignment: Alignment.centerRight,
+          child: _newCommentsBadge(),
+        ),
+      );
+      body.add(const SizedBox(height: 8));
     }
     body.add(const Divider(height: 1));
     body.add(const SizedBox(height: 12));
