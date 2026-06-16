@@ -33,7 +33,7 @@ class TicketDetailPage extends StatefulWidget {
   final Future<List<JiraComment>> Function() onLoadComments;
   final Future<JiraComment> Function(MentionedComment) onPostComment;
   final Future<List<JiraUser>> Function(String query) onSearchUsers;
-  final void Function(JiraTicket)? onOpenTicket;
+  final void Function(JiraTicket, {bool replace})? onOpenTicket;
   final Future<void> Function(Map<String, dynamic>)? onUpdateDescription;
   final Future<List<JiraUser>> Function(String query)? onLoadAssignableUsers;
   final Future<void> Function(JiraUser?)? onChangeAssignee;
@@ -256,6 +256,17 @@ class _TicketDetailPageState extends State<TicketDetailPage>
         _commentsError = '$e';
       });
     }
+  }
+
+  void _onParentTap() {
+    final parent = JiraTicket(
+      key: _ticket.parentKey,
+      summary: _ticket.parentSummary,
+      statusName: '',
+      statusCategory: '',
+      issueType: '',
+    );
+    widget.onOpenTicket!(parent, replace: true);
   }
 
   Future<void> _onSubmitComment(MentionedComment comment) async {
@@ -611,12 +622,26 @@ class _TicketDetailPageState extends State<TicketDetailPage>
               if (_ticket.parentKey.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    '↳ ${_ticket.parentKey} · ${_ticket.parentSummary}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
-                    ),
-                  ),
+                  child: widget.onOpenTicket != null
+                      ? MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: _onParentTap,
+                            child: Text(
+                              '↳ ${_ticket.parentKey} · ${_ticket.parentSummary}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Text(
+                          '↳ ${_ticket.parentKey} · ${_ticket.parentSummary}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.outline,
+                          ),
+                        ),
                 ),
             ],
           ),
@@ -966,7 +991,7 @@ class _TicketDetailPageState extends State<TicketDetailPage>
     final theme = Theme.of(context);
     final tappable = widget.onOpenTicket != null;
     return InkWell(
-      onTap: tappable ? () => widget.onOpenTicket!(t) : null,
+      onTap: tappable ? () => widget.onOpenTicket!(t, replace: false) : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(

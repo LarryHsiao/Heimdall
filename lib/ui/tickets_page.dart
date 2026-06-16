@@ -286,34 +286,39 @@ class _TicketsPageState extends State<TicketsPage> {
 
   Future<void> _openDetail(
     JiraCredentials credentials,
-    JiraTicket ticket,
-  ) async {
+    JiraTicket ticket, {
+    bool replace = false,
+  }) async {
     final auth = base64Encode(
       utf8.encode('${credentials.email}:${credentials.apiToken}'),
     );
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => TicketDetailPage(
-          initial: ticket,
-          baseUrl: credentials.baseUrl,
-          refreshInterval: RefreshTimerScope.of(context).interval,
-          imageHeaders: {'Authorization': 'Basic $auth'},
-          onLoad: () => _jira.issue(ticket, credentials),
-          onLoadTransitions: () => _loadTransitions(ticket),
-          onApplyTransition: (tr) => _applyTransition(ticket, tr),
-          onLoadComments: () => _jira.comments(ticket, credentials),
-          onPostComment: (comment) =>
-              _jira.postComment(ticket, comment, credentials),
-          onSearchUsers: (q) => _jira.searchUsers(q, credentials),
-          onOpenTicket: (t) => _openDetail(credentials, t),
-          onUpdateDescription: (desc) =>
-              _jira.updateDescription(ticket, desc, credentials),
-          onLoadAssignableUsers: (q) => _loadAssignableUsers(ticket, q),
-          onChangeAssignee: (user) => _applyAssignee(ticket, user),
-          onOpenInNewWindow: () => _openInWindow(credentials, ticket),
-        ),
+    final route = MaterialPageRoute(
+      builder: (_) => TicketDetailPage(
+        initial: ticket,
+        baseUrl: credentials.baseUrl,
+        refreshInterval: RefreshTimerScope.of(context).interval,
+        imageHeaders: {'Authorization': 'Basic $auth'},
+        onLoad: () => _jira.issue(ticket, credentials),
+        onLoadTransitions: () => _loadTransitions(ticket),
+        onApplyTransition: (tr) => _applyTransition(ticket, tr),
+        onLoadComments: () => _jira.comments(ticket, credentials),
+        onPostComment: (comment) =>
+            _jira.postComment(ticket, comment, credentials),
+        onSearchUsers: (q) => _jira.searchUsers(q, credentials),
+        onOpenTicket: (t, {replace = false}) =>
+            _openDetail(credentials, t, replace: replace),
+        onUpdateDescription: (desc) =>
+            _jira.updateDescription(ticket, desc, credentials),
+        onLoadAssignableUsers: (q) => _loadAssignableUsers(ticket, q),
+        onChangeAssignee: (user) => _applyAssignee(ticket, user),
+        onOpenInNewWindow: () => _openInWindow(credentials, ticket),
       ),
     );
+    if (replace) {
+      await Navigator.of(context).pushReplacement(route);
+    } else {
+      await Navigator.of(context).push(route);
+    }
   }
 
   Future<void> _openInWindow(
