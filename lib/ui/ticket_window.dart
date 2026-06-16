@@ -49,9 +49,14 @@ class _TicketWindowState extends State<TicketWindow> {
         onPostComment: (comment) =>
             _jira.postComment(ticket, comment, _credentials),
         onSearchUsers: (q) => _jira.searchUsers(q, _credentials),
-        onOpenTicket: (t) => _navKey.currentState?.push(
-          MaterialPageRoute(builder: (_) => _detailFor(t)),
-        ),
+        onOpenTicket: (t, {replace = false}) {
+          final route = MaterialPageRoute(builder: (_) => _detailFor(t));
+          if (replace) {
+            _navKey.currentState?.pushReplacement(route);
+          } else {
+            _navKey.currentState?.push(route);
+          }
+        },
         onUpdateDescription: (desc) =>
             _jira.updateDescription(ticket, desc, _credentials),
         onLoadAssignableUsers: (q) =>
