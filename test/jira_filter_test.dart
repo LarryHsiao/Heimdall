@@ -12,8 +12,8 @@ void main() {
       expect(_filter('HEI-6').jql, expected);
     });
 
-    test('a bare number composes a filter clause', () {
-      const expected = 'filter = 10363';
+    test('a bare number composes a filter clause ordered by Rank', () {
+      const expected = 'filter = 10363 ORDER BY Rank';
       expect(_filter('10363').jql, expected);
     });
 

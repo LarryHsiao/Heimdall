@@ -15,7 +15,7 @@ class JiraFilter {
       return '';
     }
     if (RegExp(r'^\d+$').hasMatch(trimmed)) {
-      return 'filter = $trimmed';
+      return 'filter = $trimmed ORDER BY Rank';
     }
     if (RegExp(r'^[A-Za-z][A-Za-z0-9_]*-\d+$').hasMatch(trimmed)) {
       return 'issuekey = $trimmed';
