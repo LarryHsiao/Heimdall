@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:heimdall/data/jira_comment.dart';
@@ -36,44 +35,46 @@ Widget _page({void Function(JiraTicket, {bool replace})? onOpenTicket}) {
 
 void main() {
   testWidgets(
-      'tapping parent link fires onOpenTicket with parent key and replace:true',
-      (tester) async {
-    String? capturedKey;
-    bool? capturedReplace;
+    'tapping parent link fires onOpenTicket with parent key and replace:true',
+    (tester) async {
+      String? capturedKey;
+      bool? capturedReplace;
 
-    await tester.pumpWidget(
-      _page(
-        onOpenTicket: (t, {replace = false}) {
-          capturedKey = t.key;
-          capturedReplace = replace;
-        },
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        _page(
+          onOpenTicket: (t, {replace = false}) {
+            capturedKey = t.key;
+            capturedReplace = replace;
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    final expected = 'HEI-1';
-    await tester.tap(find.text('↳ HEI-1 · Parent ticket'));
-    await tester.pump();
+      final expected = 'HEI-1';
+      await tester.tap(find.text('↳ HEI-1 · Parent ticket'));
+      await tester.pump();
 
-    expect(capturedKey, expected);
-    expect(capturedReplace, isTrue);
-  });
+      expect(capturedKey, expected);
+      expect(capturedReplace, isTrue);
+    },
+  );
 
   testWidgets(
-      'without onOpenTicket the parent line is plain text with no GestureDetector',
-      (tester) async {
-    await tester.pumpWidget(_page());
-    await tester.pumpAndSettle();
+    'without onOpenTicket the parent line is plain text with no GestureDetector',
+    (tester) async {
+      await tester.pumpWidget(_page());
+      await tester.pumpAndSettle();
 
-    // The parent text is present.
-    expect(find.text('↳ HEI-1 · Parent ticket'), findsOneWidget);
+      // The parent text is present.
+      expect(find.text('↳ HEI-1 · Parent ticket'), findsOneWidget);
 
-    // No GestureDetector wraps it.
-    final parentTextFinder = find.text('↳ HEI-1 · Parent ticket');
-    final gestureAncestor = find.ancestor(
-      of: parentTextFinder,
-      matching: find.byType(GestureDetector),
-    );
-    expect(gestureAncestor, findsNothing);
-  });
+      // No GestureDetector wraps it.
+      final parentTextFinder = find.text('↳ HEI-1 · Parent ticket');
+      final gestureAncestor = find.ancestor(
+        of: parentTextFinder,
+        matching: find.byType(GestureDetector),
+      );
+      expect(gestureAncestor, findsNothing);
+    },
+  );
 }

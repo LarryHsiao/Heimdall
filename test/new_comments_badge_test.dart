@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:heimdall/data/jira_comment.dart';
@@ -21,9 +19,7 @@ const _ticket = JiraTicket(
 const _issueResult = JiraIssue(ticket: _ticket);
 
 /// Builds a [TicketDetailPage] that delegates comment-loading to [onLoadComments].
-Widget _page({
-  required Future<List<JiraComment>> Function() onLoadComments,
-}) {
+Widget _page({required Future<List<JiraComment>> Function() onLoadComments}) {
   return MaterialApp(
     home: TicketDetailPage(
       initial: _ticket,
@@ -40,8 +36,9 @@ Widget _page({
 }
 
 void main() {
-  testWidgets('badge appears when poll delivers new comments while scrolled up',
-      (tester) async {
+  testWidgets('badge appears when poll delivers new comments while scrolled up', (
+    tester,
+  ) async {
     // The list must overflow so the controller registers a non-zero maxScrollExtent.
     // In a headless test the viewport is tiny, so many comments are needed.
     // We use a simpler approach: start with one comment, then add a second via
@@ -130,13 +127,14 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('badge appears and shows correct count when truly scrolled up',
-      (tester) async {
+  testWidgets('badge appears and shows correct count when truly scrolled up', (
+    tester,
+  ) async {
     // Use a fixed-size surface large enough to force overflow.
-    tester.binding.window.physicalSizeTestValue = const Size(400, 300);
-    tester.binding.window.devicePixelRatioTestValue = 1.0;
-    addTearDown(tester.binding.window.clearPhysicalSizeTestValue);
-    addTearDown(tester.binding.window.clearDevicePixelRatioTestValue);
+    tester.view.physicalSize = const Size(400, 300);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
     const initial = [
       JiraComment(id: 'c1', author: 'Alice', body: null),
@@ -191,15 +189,16 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('tapping the badge scrolls to bottom and clears the count',
-      (tester) async {
+  testWidgets('tapping the badge scrolls to bottom and clears the count', (
+    tester,
+  ) async {
     // We seed the state with a non-zero _unseenCommentCount by pumping
     // a page where the poll returns new comments while we are scrolled up.
     // To reliably get the badge, we use a very small viewport so the list overflows.
-    tester.binding.window.physicalSizeTestValue = const Size(400, 200);
-    tester.binding.window.devicePixelRatioTestValue = 1.0;
-    addTearDown(tester.binding.window.clearPhysicalSizeTestValue);
-    addTearDown(tester.binding.window.clearDevicePixelRatioTestValue);
+    tester.view.physicalSize = const Size(400, 200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
     const initial = [
       JiraComment(id: 'c1', author: 'A1', body: null),
@@ -259,9 +258,7 @@ void main() {
   });
 
   testWidgets('no badge when the poll adds zero new comments', (tester) async {
-    const comments = [
-      JiraComment(id: 'c1', author: 'Alice', body: null),
-    ];
+    const comments = [JiraComment(id: 'c1', author: 'Alice', body: null)];
 
     final page = _page(
       // Every call returns the same single comment.
@@ -284,8 +281,9 @@ void main() {
 
   // _isAtBottom() returns true when the controller has no clients (initial
   // load, pre-attachment) — this prevents a spurious badge on first load.
-  testWidgets('no badge on initial load even when comments are present',
-      (tester) async {
+  testWidgets('no badge on initial load even when comments are present', (
+    tester,
+  ) async {
     const comments = [
       JiraComment(id: 'c1', author: 'Alice', body: null),
       JiraComment(id: 'c2', author: 'Bob', body: null),
